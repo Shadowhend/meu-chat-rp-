@@ -2,73 +2,121 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Taberna do RP</title>
+    <title>LobbyZero</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; h-height: 100vh; height: 100vh; }
+        body { background: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; }
         header { background: #2f3136; padding: 15px; text-align: center; border-bottom: 2px solid #202225; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1 { color: #7289da; font-size: 20px; }
-        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .mensagem-linha { background: #2f3136; padding: 10px 15px; border-radius: 8px; border-left: 4px solid #7289da; max-width: 90%; animation: fadin 0.2s ease; }
-        .nome-personagem { color: #f1c40f; font-weight: bold; margin-bottom: 3px; font-size: 14px; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        
+        .mensagem-linha { background: #2f3136; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #7289da; max-width: 90%; display: flex; gap: 12px; align-items: flex-start; animation: fadin 0.2s ease; }
+        .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #40444b; border: 1px solid #555; }
+        .conteudo-msg { flex: 1; }
+        .topo-msg { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .nome-personagem { color: #f1c40f; font-weight: bold; font-size: 14px; }
+        .botao-mutar { background: none; border: none; color: #ff4757; font-size: 11px; cursor: pointer; padding: 2px 5px; border-radius: 3px; }
+        .botao-mutar:hover { background: rgba(255, 71, 87, 0.2); }
         .texto-rp { color: #ffffff; font-size: 15px; line-height: 1.4; word-break: break-word; }
-        footer { background: #2f3136; padding: 15px; display: flex; gap: 10px; box-shadow: 0 -4px 6px rgba(0,0,0,0.1); }
+        
+        footer { background: #2f3136; padding: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -4px 6px rgba(0,0,0,0.1); }
+        .inputs-linha-1 { display: flex; gap: 10px; }
+        .inputs-linha-2 { display: flex; gap: 10px; }
         input { background: #40444b; border: none; padding: 12px; border-radius: 5px; color: #fff; font-size: 14px; outline: none; }
-        #personagem { width: 20%; min-width: 120px; }
+        #personagem { width: 30%; }
+        #foto { width: 70%; }
         #mensagem { flex: 1; }
-        button { background: #7289da; color: white; border: none; padding: 0 20px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #5b73c7; }
+        button.btn-enviar { background: #7289da; color: white; border: none; padding: 0 25px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button.btn-enviar:hover { background: #5b73c7; }
         @keyframes fadin { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>🎭 Taberna do RP Global</h1>
+        <h1>🎭 LobbyZero — Global RP Chat</h1>
     </header>
 
     <div id="chat"></div>
     
     <footer>
-        <input type="text" id="personagem" placeholder="Seu Personagem...">
-        <input type="text" id="mensagem" placeholder="Digite sua fala ou ação..." onkeypress="verificarEnter(event)">
-        <button onclick="enviar()">Enviar</button>
+        <div class="inputs-linha-1">
+            <input type="text" id="personagem" placeholder="Nome do Personagem...">
+            <input type="text" id="foto" placeholder="Link da foto do Personagem (URL)...">
+        </div>
+        <div class="inputs-linha-2">
+            <input type="text" id="mensagem" placeholder="Digite sua fala, ação ou /d20..." onkeypress="verificarEnter(event)">
+            <button class="btn-enviar" onclick="enviar()">Enviar</button>
+        </div>
     </footer>
 
     <script>
         const socket = io();
         const chat = document.getElementById('chat');
+        
+        // Lista na memória do navegador para guardar quem você mutou
+        let usuariosMutados = [];
+
+        // Foto padrão caso o usuário não coloque nenhum link
+        const fotoPadrao = "https://pngall.com";
 
         function enviar() {
             const personagem = document.getElementById('personagem').value.trim() || 'Viajante Anônimo';
-            const texto = document.getElementById('mensagem').value;
+            let foto = document.getElementById('foto').value.trim() || fotoPadrao;
+            let texto = document.getElementById('mensagem').value;
             
             if(texto.trim() !== "") {
-                socket.emit('msg_rp', { personagem, texto });
+                // Comando do Dado /d20
+                if(texto.trim().toLowerCase() === '/d20') {
+                    const resultadoDado = Math.floor(Math.random() * 20) + 1;
+                    texto = `🎲 Rolou um dado de 20 lados e tirou: **${resultadoDado}**`;
+                }
+
+                socket.emit('msg_rp', { personagem, texto, foto });
                 document.getElementById('mensagem').value = "";
             }
         }
 
         function verificarEnter(event) {
-            if(event.key === 'Enter') {
-                enviar();
+            if(event.key === 'Enter') { enviar(); }
+        }
+
+        function alternarMute(idUsuario, nome) {
+            if (usuariosMutados.includes(idUsuario)) {
+                usuariosMutados = usuariosMutados.filter(id => id !== idUsuario);
+                alert(`Você desmutou ${nome}`);
+            } else {
+                usuariosMutados.push(idUsuario);
+                alert(`Você mutou ${nome}. As novas mensagens dele não vão aparecer para você.`);
             }
         }
 
         socket.on('enviar_msg_rp', (dados) => {
+            // Se o usuário que mandou a mensagem estiver mutado por você, ignora!
+            if (usuariosMutados.includes(dados.id)) return;
+
             const divLinha = document.createElement('div');
             divLinha.className = 'mensagem-linha';
 
-            // Regra especial de RP: Se começar com * vira ação (itálico)
             let textoFormatado = dados.texto;
-            if(textoFormatado.startsWith('*') && textoFormatado.endsWith('*')) {
-                textoFormatado = `<em style="color: #b9bbbe;">${textoFormatado}</em>`;
+            // Transforma ** em negrito
+            textoFormatado = textoFormatado.replace(/\*\*(.*?)\*\*/g, '<strong>\$1</strong>');
+
+            // Formata ação entre asteriscos para Itálico
+            if(dados.texto.startsWith('*') && dados.texto.endsWith('*')) {
+                textoFormatado = `<em style="color: #b9bbbe;">${dados.texto}</em>`;
             }
 
             divLinha.innerHTML = `
-                <div class="nome-personagem">${dados.personagem}</div>
-                <div class="texto-rp">${textoFormatado}</div>
+                <img class="avatar" src="${dados.foto}" onerror="this.src='${fotoPadrao}'">
+                <div class="conteudo-msg">
+                    <div class="topo-msg">
+                        <span class="nome-personagem">${dados.personagem}</span>
+                        <button class="botao-mutar" onclick="alternarMute('${dados.id}', '${dados.personagem}')">[Mutar]</button>
+                    </div>
+                    <div class="texto-rp">${textoFormatado}</div>
+                </div>
             `;
             
             chat.appendChild(divLinha);

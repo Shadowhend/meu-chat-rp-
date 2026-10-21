@@ -9,7 +9,13 @@ app.get('/', (req, res) => {
 
 io.on('connection', (socket) => {
     socket.on('msg_rp', (dados) => {
-        io.emit('enviar_msg_rp', dados);
+        // Envia o personagem, texto, foto e o id único de quem mandou
+        io.emit('enviar_msg_rp', {
+            id: socket.id,
+            personagem: dados.personagem,
+            texto: dados.texto,
+            foto: dados.foto
+        });
     });
 });
 
@@ -17,4 +23,3 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log("Servidor rodando na porta " + PORT);
 });
-

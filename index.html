@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Taberna do RP</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; h-height: 100vh; height: 100vh; }
+        header { background: #2f3136; padding: 15px; text-align: center; border-bottom: 2px solid #202225; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #7289da; font-size: 20px; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .mensagem-linha { background: #2f3136; padding: 10px 15px; border-radius: 8px; border-left: 4px solid #7289da; max-width: 90%; animation: fadin 0.2s ease; }
+        .nome-personagem { color: #f1c40f; font-weight: bold; margin-bottom: 3px; font-size: 14px; }
+        .texto-rp { color: #ffffff; font-size: 15px; line-height: 1.4; word-break: break-word; }
+        footer { background: #2f3136; padding: 15px; display: flex; gap: 10px; box-shadow: 0 -4px 6px rgba(0,0,0,0.1); }
+        input { background: #40444b; border: none; padding: 12px; border-radius: 5px; color: #fff; font-size: 14px; outline: none; }
+        #personagem { width: 20%; min-width: 120px; }
+        #mensagem { flex: 1; }
+        button { background: #7289da; color: white; border: none; padding: 0 20px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #5b73c7; }
+        @keyframes fadin { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🎭 Taberna do RP Global</h1>
+    </header>
+
+    <div id="chat"></div>
+    
+    <footer>
+        <input type="text" id="personagem" placeholder="Seu Personagem...">
+        <input type="text" id="mensagem" placeholder="Digite sua fala ou ação..." onkeypress="verificarEnter(event)">
+        <button onclick="enviar()">Enviar</button>
+    </footer>
+
+    <script>
+        const socket = io();
+        const chat = document.getElementById('chat');
+
+        function enviar() {
+            const personagem = document.getElementById('personagem').value.trim() || 'Viajante Anônimo';
+            const texto = document.getElementById('mensagem').value;
+            
+            if(texto.trim() !== "") {
+                socket.emit('msg_rp', { personagem, texto });
+                document.getElementById('mensagem').value = "";
+            }
+        }
+
+        function verificarEnter(event) {
+            if(event.key === 'Enter') {
+                enviar();
+            }
+        }
+
+        socket.on('enviar_msg_rp', (dados) => {
+            const divLinha = document.createElement('div');
+            divLinha.className = 'mensagem-linha';
+
+            // Regra especial de RP: Se começar com * vira ação (itálico)
+            let textoFormatado = dados.texto;
+            if(textoFormatado.startsWith('*') && textoFormatado.endsWith('*')) {
+                textoFormatado = `<em style="color: #b9bbbe;">${textoFormatado}</em>`;
+            }
+
+            divLinha.innerHTML = `
+                <div class="nome-personagem">${dados.personagem}</div>
+                <div class="texto-rp">${textoFormatado}</div>
+            `;
+            
+            chat.appendChild(divLinha);
+            chat.scrollTop = chat.scrollHeight;
+        });
+    </script>
+</body>
+</html>

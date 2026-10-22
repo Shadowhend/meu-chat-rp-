@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>LobbyZero</title>
@@ -9,21 +9,32 @@
         body { background: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; }
         header { background: #2f3136; padding: 15px; text-align: center; border-bottom: 2px solid #202225; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1 { color: #7289da; font-size: 20px; }
-        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
         
-        /* Caixa do Tutorial de Boas-Vindas Modificada */
-        .tutorial-box { background: #2f3136; border-left: 4px solid #7289da; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; }
+        /* Welcome Tutorial Box */
+        .tutorial-box { background: #2f3136; border-left: 4px solid #7289da; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; width: 100%; }
         .tutorial-box h3 { color: #7289da; margin-bottom: 8px; font-size: 16px; display: flex; align-items: center; gap: 6px; }
         .tutorial-box p { font-size: 14px; color: #b9bbbe; line-height: 1.5; margin-bottom: 8px; padding-right: 20px; }
         .tutorial-box ul { list-style: none; padding-left: 5px; }
         .tutorial-box li { font-size: 13px; color: #dcddde; margin-bottom: 4px; }
-        
-        /* Botão de Fechar o Tutorial */
         .close-tutorial { position: absolute; top: 12px; right: 15px; background: none; border: none; color: #7289da; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .close-tutorial:hover { color: #ff4757; }
 
-        .mensagem-linha { background: #2f3136; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #7289da; max-width: 90%; display: flex; gap: 12px; align-items: flex-start; animation: fadin 0.2s ease; }
-        .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #40444b; border: 1px solid #555; }
+        /* Message Layout Infrastructure */
+        .container-linha { display: flex; width: 100%; }
+        .mensagem-linha { background: #2f3136; padding: 12px 15px; border-radius: 8px; max-width: 75%; display: flex; gap: 12px; align-items: flex-start; animation: fadin 0.2s ease; }
+        
+        /* OTHERS' MESSAGES (Left Side) */
+        .linha-esquerda { justify-content: flex-start; }
+        .linha-esquerda .mensagem-linha { border-left: 4px solid #7289da; }
+
+        /* MY MESSAGES (Right Side) */
+        .linha-direita { justify-content: flex-end; }
+        .linha-direita .mensagem-linha { border-right: 4px solid #43b581; background: #36393f; flex-direction: row-reverse; text-align: right; }
+        .linha-direita .topo-msg { flex-direction: row-reverse; }
+
+        /* Internal Message Elements */
+        .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #40444b; border: 1px solid #555; flex-shrink: 0; }
         .conteudo-msg { flex: 1; }
         .topo-msg { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
         .nome-personagem { color: #f1c40f; font-weight: bold; font-size: 14px; }
@@ -31,6 +42,15 @@
         .botao-mutar:hover { background: rgba(255, 71, 87, 0.2); }
         .texto-rp { color: #ffffff; font-size: 15px; line-height: 1.4; word-break: break-word; }
         
+        /* Graphic D20 Dice Display System */
+        .dice-container { display: flex; align-items: center; gap: 15px; margin-top: 5px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; width: fit-content; }
+        .linha-direita .dice-container { flex-direction: row-reverse; margin-left: auto; }
+        .dice-wrapper { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
+        .dice-image { width: 100%; height: 100%; object-fit: contain; }
+        .dice-result { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: #ffffff; font-family: sans-serif; font-weight: bold; font-size: 16px; }
+        .dice-text { font-size: 14px; color: #b9bbbe; font-weight: bold; }
+
+        /* Footer Input Section */
         footer { background: #2f3136; padding: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -4px 6px rgba(0,0,0,0.1); }
         .inputs-linha-1 { display: flex; gap: 10px; }
         .inputs-linha-2 { display: flex; gap: 10px; }
@@ -46,11 +66,10 @@
 <body>
 
     <header>
-        <h1>🎭 LobbyZero — Global RP Chat</h1>
+        <h1>🎭 LobbyZero — Global RP Hub</h1>
     </header>
 
     <div id="chat">
-        <!-- O TUTORIAL COM O BOTÃO DE "X" PARA IGNORAR -->
         <div class="tutorial-box" id="tutorialContainer">
             <button class="close-tutorial" onclick="ignorarTutorial()">×</button>
             <h3>✨ Welcome to LobbyZero!</h3>
@@ -66,12 +85,12 @@
     
     <footer>
         <div class="inputs-linha-1">
-            <input type="text" id="personagem" placeholder="Nome do Personagem...">
-            <input type="text" id="foto" placeholder="Link da foto do Personagem (URL)...">
+            <input type="text" id="personagem" placeholder="Character Name...">
+            <input type="text" id="foto" placeholder="Character Avatar Image Link (URL)...">
         </div>
         <div class="inputs-linha-2">
-            <input type="text" id="mensagem" placeholder="Digite sua fala, ação ou /d20..." onkeypress="verificarEnter(event)">
-            <button class="btn-enviar" onclick="enviar()">Enviar</button>
+            <input type="text" id="mensagem" placeholder="Type your speech, action or /d20..." onkeypress="verificarEnter(event)">
+            <button class="btn-enviar" onclick="enviar()">Send</button>
         </div>
     </footer>
 
@@ -80,31 +99,29 @@
         const chat = document.getElementById('chat');
         let usuariosMutados = [];
         const fotoPadrao = "https://pngall.com";
+        const imgDadoCustom = "https://imgbox.com";
 
-        // Verifica se o usuário já escolheu esconder o tutorial no passado
         if (localStorage.getItem('tutorialEscondido') === 'sim') {
             document.getElementById('tutorialContainer').style.display = 'none';
         }
 
         function ignorarTutorial() {
-            // Esconde a caixinha da tela na hora
             document.getElementById('tutorialContainer').style.display = 'none';
-            // Salva a decisão no navegador do usuário para sempre
             localStorage.setItem('tutorialEscondido', 'sim');
         }
 
         function enviar() {
-            const personaje = document.getElementById('personagem').value.trim() || 'Viajante Anônimo';
+            const personagem = document.getElementById('personagem').value.trim() || 'Anonymous Wanderer';
             let foto = document.getElementById('foto').value.trim() || fotoPadrao;
             let texto = document.getElementById('mensagem').value;
             
             if(texto.trim() !== "") {
                 if(texto.trim().toLowerCase() === '/d20') {
                     const resultadoDado = Math.floor(Math.random() * 20) + 1;
-                    texto = `🎲 Rolou um dado de 20 lados e tirou: **${resultadoDado}**`;
+                    socket.emit('msg_rp', { personagem, texto: `__DICE_ROLL__:${resultadoDado}`, foto });
+                } else {
+                    socket.emit('msg_rp', { personagem, texto, foto });
                 }
-
-                socket.emit('msg_rp', { personaje, texto, foto });
                 document.getElementById('mensagem').value = "";
             }
         }
@@ -113,43 +130,70 @@
             if(event.key === 'Enter') { enviar(); }
         }
 
+        function construirMensagemDado(resultado) {
+            return `
+                <div class="dice-container">
+                    <div class="dice-wrapper">
+                        <img class="dice-image" src="${imgDadoCustom}">
+                        <div class="dice-result">${resultado}</div>
+                    </div>
+                    <div class="dice-text">Rolled a D20!</div>
+                </div>
+            `;
+        }
+
         function alternarMute(idUsuario, nome) {
             if (usuariosMutados.includes(idUsuario)) {
                 usuariosMutados = usuariosMutados.filter(id => id !== idUsuario);
-                alert(`Você desmutou ${nome}`);
+                alert(`You unmuted ${nome}`);
             } else {
                 usuariosMutados.push(idUsuario);
-                alert(`Você mutou ${nome}. As novas mensagens dele não vão aparecer para você.`);
+                alert(`You muted ${nome}. New messages from this user will be hidden.`);
             }
         }
 
-        socket.on('enviar_msg_rp', (dados) => {
+        // Função isolada para desenhar as mensagens na tela
+        function renderizarMensagem(dados) {
             if (usuariosMutados.includes(dados.id)) return;
 
-            const divLinha = document.createElement('div');
-            divLinha.className = 'mensagem-linha';
-
-            let textoFormatado = dados.texto;
-            textoFormatado = textoFormatado.replace(/\*\*(.*?)\*\*/g, '<strong>\$1</strong>');
-
-            if(dados.texto.startsWith('*') && dados.texto.endsWith('*')) {
-                textoFormatado = `<em style="color: #b9bbbe;">${dados.texto}</em>`;
+            const containerLinha = document.createElement('div');
+            
+            // Verifica se a mensagem foi enviada pela conexão atual
+            if (dados.id === socket.id) {
+                containerLinha.className = 'container-linha linha-direita';
+            } else {
+                containerLinha.className = 'container-linha linha-esquerda';
             }
 
-            divLinha.innerHTML = `
-                <img class="avatar" src="${dados.foto}" onerror="this.src='${fotoPadrao}'">
-                <div class="conteudo-msg">
-                    <div class="topo-msg">
-                        <span class="nome-personagem">${dados.personagem}</span>
-                        <button class="botao-mutar" onclick="alternarMute('${dados.id}', '${dados.personagem}')">[Mutar]</button>
-                    </div>
-                    <div class="texto-rp">${textoFormatado}</div>
-                </div>
-            `;
-            
-            chat.appendChild(divLinha);
-            chat.scrollTop = chat.scrollHeight;
-        });
-    </script>
-</body>
-</html>
+            const divMsg = document.createElement('div');
+            divMsg.className = 'mensagem-linha';
+
+            let conteudoFinalHTML = "";
+
+            if (dados.texto.startsWith('__DICE_ROLL__:')) {
+                const partes = dados.texto.split(':');
+                const numeroDoDado = partes[1]; 
+                conteudoFinalHTML = construirMensagemDado(numeroDoDado);
+            } else {
+                let textoFormatado = dados.texto;
+if(dados.texto.startsWith('') && dados.texto.endsWith('')) {
+textoFormatado = <em style="color: #b9bbbe;">${dados.texto}</em>;
+}
+conteudoFinalHTML = <div class="texto-rp">${textoFormatado}</div>;
+}
+const botaoMutarHTML = (dados.id === socket.id) ? '' : <button class="botao-mutar" onclick="alternarMute('${dados.id}', '${dados.personagem}')">[Mute]</button>;
+divMsg.innerHTML = <img class="avatar" src="${dados.foto}" onerror="this.src='${fotoPadrao}'"> <div class="conteudo-msg"> <div class="topo-msg"> <span class="nome-personagem">${dados.personagem}</span> ${botaoMutarHTML} </div> ${conteudoFinalHTML} </div>;
+containerLinha.appendChild(divMsg);
+chat.appendChild(containerLinha);
+chat.scrollTop = chat.scrollHeight;
+}
+// ESCUTA 1: Recebe o histórico completo ao entrar ou dar F5
+socket.on('carregar_historico', (historico) => {
+historico.forEach(msg => {
+renderizarMensagem(msg);
+});
+});
+// ESCUTA 2: Recebe novas mensagens em tempo real
+socket.on('enviar_msg_rp', (dados) => {
+renderizarMensagem(dados);
+});

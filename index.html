@@ -153,6 +153,7 @@
         }
 
         // Função isolada para desenhar as mensagens na tela
+             // Função isolada para desenhar as mensagens na tela
         function renderizarMensagem(dados) {
             if (usuariosMutados.includes(dados.id)) return;
 
@@ -176,24 +177,39 @@
                 conteudoFinalHTML = construirMensagemDado(numeroDoDado);
             } else {
                 let textoFormatado = dados.texto;
-if(dados.texto.startsWith('') && dados.texto.endsWith('')) {
-textoFormatado = <em style="color: #b9bbbe;">${dados.texto}</em>;
-}
-conteudoFinalHTML = <div class="texto-rp">${textoFormatado}</div>;
-}
-const botaoMutarHTML = (dados.id === socket.id) ? '' : <button class="botao-mutar" onclick="alternarMute('${dados.id}', '${dados.personagem}')">[Mute]</button>;
-divMsg.innerHTML = <img class="avatar" src="${dados.foto}" onerror="this.src='${fotoPadrao}'"> <div class="conteudo-msg"> <div class="topo-msg"> <span class="nome-personagem">${dados.personagem}</span> ${botaoMutarHTML} </div> ${conteudoFinalHTML} </div>;
-containerLinha.appendChild(divMsg);
-chat.appendChild(containerLinha);
-chat.scrollTop = chat.scrollHeight;
-}
-// ESCUTA 1: Recebe o histórico completo ao entrar ou dar F5
-socket.on('carregar_historico', (historico) => {
-historico.forEach(msg => {
-renderizarMensagem(msg);
-});
-});
-// ESCUTA 2: Recebe novas mensagens em tempo real
-socket.on('enviar_msg_rp', (dados) => {
-renderizarMensagem(dados);
-});
+                // Corrigido para verificar se começa e termina com asterisco *
+                if(dados.texto.startsWith('*') && dados.texto.endsWith('*')) {
+                    textoFormatado = `<em style="color: #b9bbbe;">${dados.texto}</em>`;
+                }
+                conteudoFinalHTML = `<div class="texto-rp">${textoFormatado}</div>`;
+            }
+
+                     const botaoMutarHTML = (dados.id === socket.id) ? '' : `<button class="botao-mutar" onclick="alternarMute('${dados.id}', '${dados.personagem}')">[Mute]</button>`;
+            
+            divMsg.innerHTML = `
+                <img class="avatar" src="${dados.foto}" onerror="this.src='${fotoPadrao}'"> 
+                <div class="conteudo-msg"> 
+                    <div class="topo-msg"> 
+                        <span class="nome-personagem">${dados.personagem}</span> 
+                        ${botaoMutarHTML} 
+                    </div> 
+                    ${conteudoFinalHTML} 
+                </div>
+            `;
+
+            containerLinha.appendChild(divMsg);
+            chat.appendChild(containerLinha);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // ESCUTA 1: Recebe o histórico completo ao entrar ou dar F5
+        socket.on('carregar_historico', (historico) => {
+            historico.forEach(msg => {
+                renderizarMensagem(msg);
+            });
+        });
+
+        // ESCUTA 2: Recebe novas mensagens em tempo real
+        socket.on('enviar_msg_rp', (dados) => {
+            renderizarMensagem(dados);
+        });

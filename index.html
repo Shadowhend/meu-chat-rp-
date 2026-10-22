@@ -1,215 +1,306 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>LobbyZero</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        header { background: #2f3136; padding: 15px; text-align: center; border-bottom: 2px solid #202225; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { color: #7289da; font-size: 20px; }
-        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-        
-        /* Welcome Tutorial Box */
-        .tutorial-box { background: #2f3136; border-left: 4px solid #7289da; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; width: 100%; }
-        .tutorial-box h3 { color: #7289da; margin-bottom: 8px; font-size: 16px; display: flex; align-items: center; gap: 6px; }
-        .tutorial-box p { font-size: 14px; color: #b9bbbe; line-height: 1.5; margin-bottom: 8px; padding-right: 20px; }
-        .tutorial-box ul { list-style: none; padding-left: 5px; }
-        .tutorial-box li { font-size: 13px; color: #dcddde; margin-bottom: 4px; }
-        .close-tutorial { position: absolute; top: 12px; right: 15px; background: none; border: none; color: #7289da; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .close-tutorial:hover { color: #ff4757; }
-
-        /* Message Layout Infrastructure */
-        .container-linha { display: flex; width: 100%; }
-        .mensagem-linha { background: #2f3136; padding: 12px 15px; border-radius: 8px; max-width: 75%; display: flex; gap: 12px; align-items: flex-start; animation: fadin 0.2s ease; }
-        
-        /* OTHERS' MESSAGES (Left Side) */
-        .linha-esquerda { justify-content: flex-start; }
-        .linha-esquerda .mensagem-linha { border-left: 4px solid #7289da; }
-
-        /* MY MESSAGES (Right Side) */
-        .linha-direita { justify-content: flex-end; }
-        .linha-direita .mensagem-linha { border-right: 4px solid #43b581; background: #36393f; flex-direction: row-reverse; text-align: right; }
-        .linha-direita .topo-msg { flex-direction: row-reverse; }
-
-        /* Internal Message Elements */
-        .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #40444b; border: 1px solid #555; flex-shrink: 0; }
-        .conteudo-msg { flex: 1; }
-        .topo-msg { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-        .nome-personagem { color: #f1c40f; font-weight: bold; font-size: 14px; }
-        .botao-mutar { background: none; border: none; color: #ff4757; font-size: 11px; cursor: pointer; padding: 2px 5px; border-radius: 3px; }
-        .botao-mutar:hover { background: rgba(255, 71, 87, 0.2); }
-        .texto-rp { color: #ffffff; font-size: 15px; line-height: 1.4; word-break: break-word; }
-        
-        /* Graphic D20 Dice Display System */
-        .dice-container { display: flex; align-items: center; gap: 15px; margin-top: 5px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; width: fit-content; }
-        .linha-direita .dice-container { flex-direction: row-reverse; margin-left: auto; }
-        .dice-wrapper { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
-        .dice-image { width: 100%; height: 100%; object-fit: contain; }
-        .dice-result { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: #ffffff; font-family: sans-serif; font-weight: bold; font-size: 16px; }
-        .dice-text { font-size: 14px; color: #b9bbbe; font-weight: bold; }
-
-        /* Footer Input Section */
-        footer { background: #2f3136; padding: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -4px 6px rgba(0,0,0,0.1); }
-        .inputs-linha-1 { display: flex; gap: 10px; }
-        .inputs-linha-2 { display: flex; gap: 10px; }
-        input { background: #40444b; border: none; padding: 12px; border-radius: 5px; color: #fff; font-size: 14px; outline: none; }
-        #personagem { width: 30%; }
-        #foto { width: 70%; }
-        #mensagem { flex: 1; }
-        button.btn-enviar { background: #7289da; color: white; border: none; padding: 0 25px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button.btn-enviar:hover { background: #5b73c7; }
-        @keyframes fadin { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LobbyZero</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #202225; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    header { background: #2f3136; padding: 15px; text-align: center; border-bottom: 2px solid #202225; box-shadow: 0 4px 6px rgba(0,0,0,.1); }
+    h1 { color: #7289da; font-size: 20px; }
+    #status { font-size: 12px; margin-top: 6px; color: #faa; }
+    #status.connected { color: #43b581; }
+    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .tutorial-box { background: #2f3136; border-left: 4px solid #7289da; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,.05); position: relative; width: 100%; }
+    .tutorial-box h3 { color: #7289da; margin-bottom: 8px; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+    .tutorial-box p { font-size: 14px; color: #b9bbbe; line-height: 1.5; margin-bottom: 8px; padding-right: 20px; }
+    .tutorial-box ul { list-style: none; padding-left: 5px; }
+    .tutorial-box li { font-size: 13px; color: #dcddde; margin-bottom: 4px; }
+    .close-tutorial { position: absolute; top: 12px; right: 15px; background: none; border: none; color: #7289da; font-size: 18px; font-weight: bold; cursor: pointer; }
+    .close-tutorial:hover { color: #ff4757; }
+    .container-linha { display: flex; width: 100%; }
+    .mensagem-linha { background: #2f3136; padding: 12px 15px; border-radius: 8px; max-width: 75%; display: flex; gap: 12px; align-items: flex-start; animation: fadin .2s ease; overflow-wrap: anywhere; }
+    .linha-esquerda { justify-content: flex-start; }
+    .linha-esquerda .mensagem-linha { border-left: 4px solid #7289da; }
+    .linha-direita { justify-content: flex-end; }
+    .linha-direita .mensagem-linha { border-right: 4px solid #43b581; background: #36393f; flex-direction: row-reverse; text-align: right; }
+    .linha-direita .topo-msg { flex-direction: row-reverse; }
+    .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #40444b; border: 1px solid #555; flex-shrink: 0; }
+    .conteudo-msg { flex: 1; min-width: 0; }
+    .topo-msg { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+    .nome-personagem { color: #f1c40f; font-weight: bold; font-size: 14px; }
+    .botao-mutar { background: none; border: none; color: #ff4757; font-size: 11px; cursor: pointer; padding: 2px 5px; border-radius: 3px; }
+    .botao-mutar:hover { background: rgba(255,71,87,.2); }
+    .texto-rp { color: #fff; font-size: 15px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .texto-rp em { color: #b9bbbe; }
+    .dice-container { display: flex; align-items: center; gap: 15px; margin-top: 5px; background: rgba(0,0,0,.2); padding: 10px; border-radius: 6px; width: fit-content; }
+    .linha-direita .dice-container { flex-direction: row-reverse; margin-left: auto; }
+    .dice-wrapper { position: relative; width: 60px; height: 60px; flex-shrink: 0; display: grid; place-items: center; }
+    .dice-face { width: 52px; height: 52px; display: grid; place-items: center; border: 3px solid #7289da; border-radius: 12px; background: #202225; color: #fff; font-size: 21px; font-weight: bold; transform: rotate(8deg); }
+    .dice-result { transform: rotate(-8deg); }
+    .dice-text { font-size: 14px; color: #b9bbbe; font-weight: bold; }
+    footer { background: #2f3136; padding: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -4px 6px rgba(0,0,0,.1); }
+    .inputs-linha-1, .inputs-linha-2 { display: flex; gap: 10px; }
+    input { min-width: 0; background: #40444b; border: none; padding: 12px; border-radius: 5px; color: #fff; font-size: 14px; outline: none; }
+    input:focus { box-shadow: 0 0 0 2px #7289da; }
+    #personagem { width: 30%; }
+    #foto { width: 70%; }
+    #mensagem { flex: 1; }
+    button.btn-enviar { background: #7289da; color: white; border: none; padding: 0 25px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: .2s; }
+    button.btn-enviar:hover { background: #5b73c7; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    @keyframes fadin { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 600px) {
+      #chat { padding: 12px; }
+      .mensagem-linha { max-width: 95%; padding: 10px; gap: 8px; }
+      .avatar { width: 36px; height: 36px; }
+      footer { padding: 10px; }
+      .inputs-linha-1, .inputs-linha-2 { gap: 7px; }
+      #personagem { width: 38%; }
+      #foto { width: 62%; }
+      button.btn-enviar { padding: 0 14px; }
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <h1>🎭 LobbyZero — Global RP Hub</h1>
+    <div id="status">Connecting to server...</div>
+  </header>
 
-    <header>
-        <h1>🎭 LobbyZero — Global RP Hub</h1>
-    </header>
-
-    <div id="chat">
-        <div class="tutorial-box" id="tutorialContainer">
-            <button class="close-tutorial" onclick="ignorarTutorial()">×</button>
-            <h3>✨ Welcome to LobbyZero!</h3>
-            <p>LobbyZero is an open, global text roleplay hub created to bring back the warm, creative human connection lost with the shutdown of platforms like Project Z and Omlet Arcade. No endless channels, no strict application forms—just grab your character and write your story.</p>
-            <ul>
-                <li>🔹 <strong>Set up:</strong> Fill in your <strong>Character Name</strong> and paste any image URL for your <strong>Avatar Photo</strong> before messaging.</li>
-                <li>🔹 <strong>Actions/Narration:</strong> Start and end your sentence with asterisks to format actions in italic. (e.g., <code>*walks into the tavern*</code>)</li>
-                <li>🔹 <strong>Roll Dice:</strong> Type exactly <code>/d20</code> in the message bar to roll a 20-sided dice and test your character's luck!</li>
-                <li>🔹 <strong>Safety First:</strong> If someone is ruining your experience, simply click the red <strong>[Mute]</strong> button next to their name to block their texts.</li>
-            </ul>
-        </div>
+  <div id="chat">
+    <div class="tutorial-box" id="tutorialContainer">
+      <button class="close-tutorial" type="button" onclick="ignorarTutorial()" aria-label="Close tutorial">×</button>
+      <h3>✨ Welcome to LobbyZero!</h3>
+      <p>LobbyZero is an open, global text roleplay hub created to bring back the warm, creative human connection lost with the shutdown of platforms like Project Z and Omlet Arcade. No endless channels, no strict application forms—just grab your character and write your story.</p>
+      <ul>
+        <li>🔹 <strong>Set up:</strong> Fill in your <strong>Character Name</strong> and optionally paste an image URL for your <strong>Avatar Photo</strong>.</li>
+        <li>🔹 <strong>Actions/Narration:</strong> Put asterisks around actions to display them in italics (e.g., <code>*walks into the tavern*</code>).</li>
+        <li>🔹 <strong>Roll Dice:</strong> Type exactly <code>/d20</code> in the message bar to roll a 20-sided die.</li>
+        <li>🔹 <strong>Safety First:</strong> Click <strong>[Mute]</strong> next to a name to hide messages from that user in your current session.</li>
+      </ul>
     </div>
-    
-    <footer>
-        <div class="inputs-linha-1">
-            <input type="text" id="personagem" placeholder="Character Name...">
-            <input type="text" id="foto" placeholder="Character Avatar Image Link (URL)...">
-        </div>
-        <div class="inputs-linha-2">
-            <input type="text" id="mensagem" placeholder="Type your speech, action or /d20..." onkeypress="verificarEnter(event)">
-            <button class="btn-enviar" onclick="enviar()">Send</button>
-        </div>
-    </footer>
+  </div>
 
-    <script>
-        const socket = io();
-        const chat = document.getElementById('chat');
-        let usuariosMutados = [];
-        const fotoPadrao = "https://pngall.com";
-        const imgDadoCustom = "https://imgbox.com";
+  <footer>
+    <div class="inputs-linha-1">
+      <input type="text" id="personagem" placeholder="Character Name..." maxlength="60" autocomplete="nickname">
+      <input type="url" id="foto" placeholder="Character Avatar Image Link (URL)..." autocomplete="url">
+    </div>
+    <div class="inputs-linha-2">
+      <input type="text" id="mensagem" placeholder="Type your speech, action or /d20..." autocomplete="off" maxlength="4000">
+      <button class="btn-enviar" id="sendButton" type="button" onclick="enviar()">Send</button>
+    </div>
+  </footer>
 
-        if (localStorage.getItem('tutorialEscondido') === 'sim') {
-            document.getElementById('tutorialContainer').style.display = 'none';
+  <script>
+    (() => {
+      const statusEl = document.getElementById('status');
+      const chat = document.getElementById('chat');
+      const inputNome = document.getElementById('personagem');
+      const inputFoto = document.getElementById('foto');
+      const inputMensagem = document.getElementById('mensagem');
+      const sendButton = document.getElementById('sendButton');
+      const usuariosMutados = new Set();
+      const fotoPadrao = 'https://placehold.co/90x90/40444b/ffffff?text=RP';
+
+      if (typeof io !== 'function') {
+        statusEl.textContent = 'Socket.IO failed to load. Check the server and /socket.io/socket.io.js.';
+        return;
+      }
+
+      const socket = io();
+
+      socket.on('connect', () => {
+        statusEl.textContent = 'Connected';
+        statusEl.classList.add('connected');
+        sendButton.disabled = false;
+      });
+
+      socket.on('disconnect', () => {
+        statusEl.textContent = 'Disconnected from server. Reconnecting...';
+        statusEl.classList.remove('connected');
+      });
+
+      socket.on('connect_error', (error) => {
+        statusEl.textContent = 'Connection error: ' + (error && error.message ? error.message : 'could not connect');
+        statusEl.classList.remove('connected');
+      });
+
+      if (localStorage.getItem('tutorialEscondido') === 'sim') {
+        document.getElementById('tutorialContainer').style.display = 'none';
+      }
+
+      window.ignorarTutorial = function () {
+        document.getElementById('tutorialContainer').style.display = 'none';
+        localStorage.setItem('tutorialEscondido', 'sim');
+      };
+
+      window.enviar = function () {
+        const personagem = inputNome.value.trim() || 'Anonymous Wanderer';
+        const textoOriginal = inputMensagem.value;
+        const texto = textoOriginal.trim();
+        let foto = inputFoto.value.trim();
+
+        if (!texto) return;
+        if (!socket.connected) {
+          statusEl.textContent = 'Not connected to server. Your message was not sent.';
+          statusEl.classList.remove('connected');
+          return;
         }
 
-        function ignorarTutorial() {
-            document.getElementById('tutorialContainer').style.display = 'none';
-            localStorage.setItem('tutorialEscondido', 'sim');
+        if (!foto) foto = fotoPadrao;
+        // Avoid sending malformed avatar URLs.
+        try {
+          const url = new URL(foto);
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') foto = fotoPadrao;
+        } catch (_) {
+          foto = fotoPadrao;
         }
 
-        function enviar() {
-            const personagem = document.getElementById('personagem').value.trim() || 'Anonymous Wanderer';
-            let foto = document.getElementById('foto').value.trim() || fotoPadrao;
-            let texto = document.getElementById('mensagem').value;
-            
-            if(texto.trim() !== "") {
-                if(texto.trim().toLowerCase() === '/d20') {
-                    const resultadoDado = Math.floor(Math.random() * 20) + 1;
-                    socket.emit('msg_rp', { personagem, texto: `__DICE_ROLL__:${resultadoDado}`, foto });
-                } else {
-                    socket.emit('msg_rp', { personagem, texto, foto });
-                }
-                document.getElementById('mensagem').value = "";
-            }
+        let payloadText = texto;
+        if (texto.toLowerCase() === '/d20') {
+          const resultadoDado = Math.floor(Math.random() * 20) + 1;
+          payloadText = `__DICE_ROLL__:${resultadoDado}`;
         }
 
-        function verificarEnter(event) {
-            if(event.key === 'Enter') { enviar(); }
-        }
-
-        function construirMensagemDado(resultado) {
-            return `
-                <div class="dice-container">
-                    <div class="dice-wrapper">
-                        <img class="dice-image" src="${imgDadoCustom}">
-                        <div class="dice-result">${resultado}</div>
-                    </div>
-                    <div class="dice-text">Rolled a D20!</div>
-                </div>
-            `;
-        }
-
-        function alternarMute(idUsuario, nome) {
-            if (usuariosMutados.includes(idUsuario)) {
-                usuariosMutados = usuariosMutados.filter(id => id !== idUsuario);
-                alert(`You unmuted ${nome}`);
-            } else {
-                usuariosMutados.push(idUsuario);
-                alert(`You muted ${nome}. New messages from this user will be hidden.`);
-            }
-        }
-
-        // Função isolada para desenhar as mensagens na tela
-             // Função isolada para desenhar as mensagens na tela
-        function renderizarMensagem(dados) {
-            if (usuariosMutados.includes(dados.id)) return;
-
-            const containerLinha = document.createElement('div');
-            
-            // Verifica se a mensagem foi enviada pela conexão atual
-            if (dados.id === socket.id) {
-                containerLinha.className = 'container-linha linha-direita';
-            } else {
-                containerLinha.className = 'container-linha linha-esquerda';
-            }
-
-            const divMsg = document.createElement('div');
-            divMsg.className = 'mensagem-linha';
-
-            let conteudoFinalHTML = "";
-
-            if (dados.texto.startsWith('__DICE_ROLL__:')) {
-                const partes = dados.texto.split(':');
-                const numeroDoDado = partes[1]; 
-                conteudoFinalHTML = construirMensagemDado(numeroDoDado);
-            } else {
-                let textoFormatado = dados.texto;
-                // Corrigido para verificar se começa e termina com asterisco *
-                if(dados.texto.startsWith('*') && dados.texto.endsWith('*')) {
-                    textoFormatado = `<em style="color: #b9bbbe;">${dados.texto}</em>`;
-                }
-                conteudoFinalHTML = `<div class="texto-rp">${textoFormatado}</div>`;
-            }
-
-                     const botaoMutarHTML = (dados.id === socket.id) ? '' : `<button class="botao-mutar" onclick="alternarMute('${dados.id}', '${dados.personagem}')">[Mute]</button>`;
-            
-            divMsg.innerHTML = `
-                <img class="avatar" src="${dados.foto}" onerror="this.src='${fotoPadrao}'"> 
-                <div class="conteudo-msg"> 
-                    <div class="topo-msg"> 
-                        <span class="nome-personagem">${dados.personagem}</span> 
-                        ${botaoMutarHTML} 
-                    </div> 
-                    ${conteudoFinalHTML} 
-                </div>
-            `;
-
-            containerLinha.appendChild(divMsg);
-            chat.appendChild(containerLinha);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-        // ESCUTA 1: Recebe o histórico completo ao entrar ou dar F5
-        socket.on('carregar_historico', (historico) => {
-            historico.forEach(msg => {
-                renderizarMensagem(msg);
-            });
+        socket.emit('msg_rp', { personagem, texto: payloadText, foto }, (resposta) => {
+          if (resposta && resposta.error) {
+            statusEl.textContent = 'Message error: ' + resposta.error;
+          }
         });
+        inputMensagem.value = '';
+        inputMensagem.focus();
+      };
 
-        // ESCUTA 2: Recebe novas mensagens em tempo real
-        socket.on('enviar_msg_rp', (dados) => {
-            renderizarMensagem(dados);
-        });
+      window.verificarEnter = function (event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          window.enviar();
+        }
+      };
+      inputMensagem.addEventListener('keydown', window.verificarEnter);
+
+      function alternarMute(idUsuario, nome) {
+        if (usuariosMutados.has(idUsuario)) {
+          usuariosMutados.delete(idUsuario);
+          alert(`You unmuted ${nome || 'this user'}.`);
+        } else {
+          usuariosMutados.add(idUsuario);
+          alert(`You muted ${nome || 'this user'}. New messages from this user will be hidden in this session.`);
+        }
+      }
+
+      function construirMensagemDado(resultado) {
+        const container = document.createElement('div');
+        container.className = 'dice-container';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dice-wrapper';
+        const face = document.createElement('div');
+        face.className = 'dice-face';
+        const number = document.createElement('span');
+        number.className = 'dice-result';
+        number.textContent = String(resultado);
+        face.appendChild(number);
+        wrapper.appendChild(face);
+        const label = document.createElement('div');
+        label.className = 'dice-text';
+        label.textContent = 'Rolled a D20!';
+        container.append(wrapper, label);
+        return container;
+      }
+
+      function isValidImageUrl(value) {
+        if (typeof value !== 'string' || !value.trim()) return false;
+        try {
+          const url = new URL(value);
+          return (url.protocol === 'http:' || url.protocol === 'https:');
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function renderizarMensagem(dados) {
+        if (!dados || typeof dados.texto !== 'string') return;
+        if (usuariosMutados.has(dados.id)) return;
+
+        const containerLinha = document.createElement('div');
+        containerLinha.className = 'container-linha ' + (dados.id && dados.id === socket.id ? 'linha-direita' : 'linha-esquerda');
+
+        const divMsg = document.createElement('div');
+        divMsg.className = 'mensagem-linha';
+
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.alt = 'Character avatar';
+        avatar.loading = 'lazy';
+        avatar.src = isValidImageUrl(dados.foto) ? dados.foto : fotoPadrao;
+        avatar.onerror = function () {
+          this.onerror = null;
+          this.src = fotoPadrao;
+        };
+
+        const conteudo = document.createElement('div');
+        conteudo.className = 'conteudo-msg';
+        const topo = document.createElement('div');
+        topo.className = 'topo-msg';
+        const nome = document.createElement('span');
+        nome.className = 'nome-personagem';
+        nome.textContent = typeof dados.personagem === 'string' && dados.personagem.trim() ? dados.personagem : 'Anonymous Wanderer';
+        topo.appendChild(nome);
+
+        if (!dados.id || dados.id !== socket.id) {
+          const botaoMute = document.createElement('button');
+          botaoMute.type = 'button';
+          botaoMute.className = 'botao-mutar';
+          botaoMute.textContent = '[Mute]';
+          botaoMute.addEventListener('click', () => alternarMute(dados.id, nome.textContent));
+          topo.appendChild(botaoMute);
+        }
+
+        conteudo.appendChild(topo);
+        if (dados.texto.startsWith('__DICE_ROLL__:')) {
+          const resultado = dados.texto.slice('__DICE_ROLL__:'.length);
+          if (/^(?:[1-9]|1\d|20)$/.test(resultado)) {
+            conteudo.appendChild(construirMensagemDado(resultado));
+          } else {
+            const textoErro = document.createElement('div');
+            textoErro.className = 'texto-rp';
+            textoErro.textContent = '[Invalid dice result]';
+            conteudo.appendChild(textoErro);
+          }
+        } else {
+          const textoEl = document.createElement('div');
+          textoEl.className = 'texto-rp';
+          const texto = dados.texto;
+          if (texto.length >= 2 && texto.startsWith('*') && texto.endsWith('*')) {
+            const italico = document.createElement('em');
+            italico.textContent = texto.slice(1, -1);
+            textoEl.appendChild(italico);
+          } else {
+            textoEl.textContent = texto;
+          }
+          conteudo.appendChild(textoEl);
+        }
+
+        divMsg.append(avatar, conteudo);
+        containerLinha.appendChild(divMsg);
+        chat.appendChild(containerLinha);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      socket.on('carregar_historico', (historico) => {
+        if (!Array.isArray(historico)) return;
+        // Keep the tutorial at the top and append the message history after it.
+        historico.forEach(renderizarMensagem);
+      });
+
+      socket.on('enviar_msg_rp', (dados) => {
+        renderizarMensagem(dados);
+      });
+    })();
+  </script>
+</body>
+</html>

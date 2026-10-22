@@ -531,6 +531,93 @@
       .online-count { font-size: 10px; }
       #status { font-size: 10px; margin-left: 8px; }
     }
+    /* Lobby Zero visual refresh */
+    :root { --accent:#ffce43; --chat-bg:#17191d; --muted:#969ba5; }
+    body { background:#17191d; color:#e7e8eb; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .server-rail { background:#111317; }
+    .server-icon { background:#22252b; border:1px solid #343740; color:#ffce43; }
+    .server-icon:hover,.server-icon.active { background:#302a1a; border-color:#85671e; color:#ffda6a; }
+    .channel-sidebar { background:#202228; border-right:1px solid #30333a; }
+    .workspace-title { height:58px; flex-basis:58px; font-size:16px; }
+    .channel.active { background:#302d24; color:#ffda6a; }
+    .main-column,.chat-header,#chat,.composer-area { background:#191b20; }
+    .chat-header { height:64px; flex-basis:64px; padding:0 24px; border-bottom:1px solid #2e3138; }
+    .chat-header-name { font-size:19px; font-weight:750; letter-spacing:.2px; }
+    .chat-header-topic { color:#9da2ad; }
+    .welcome { margin:20px 24px 26px; padding:20px; border:1px solid #343740; border-radius:14px; background:linear-gradient(135deg,#22252b,#1b1d22); }
+    .welcome h2 { font-size:22px; color:#ffce43; }
+    .welcome p { color:#b9bdc6; }
+    .message-row { padding:6px 24px; gap:10px; }
+    .message-row:hover { background:rgba(255,255,255,.025); }
+    .message-content { flex:0 1 auto; max-width:min(78%,760px); padding:10px 13px; border-radius:4px 14px 14px 14px; background:#24272e; border:1px solid #30333a; }
+    .message-row.grouped .message-content { margin-left:50px; }
+    .message-name { font-size:13px; font-weight:700; color:#f0d27c; }
+    .message-time { margin-left:2px; }
+    .message-text { line-height:1.5; }
+    .message-row.own-message { justify-content:flex-end; }
+    .message-row.own-message .message-content { background:#302d24; border-color:#625127; border-radius:14px 4px 14px 14px; }
+    .message-row.own-message .message-meta { justify-content:flex-end; }
+    .message-row.own-message .message-name { color:#ffda6a; }
+    .message-row.own-message .message-text { color:#fff1c4; }
+    .message-row.own-message .message-avatar,.message-row.own-message .message-avatar-spacer { display:none; }
+    .message-row.own-message.grouped .message-content { margin-left:0; }
+    .member-sidebar { background:#202228; border-left:1px solid #30333a; }
+    .member-heading { font-size:12px; letter-spacing:.08em; }
+    .member-entry { border-radius:9px; padding:8px; }
+    .user-avatar { background:#41371f; color:#ffda6a; }
+    .composer-area { padding:12px 20px max(14px,env(safe-area-inset-bottom)); border-top:1px solid #30333a; }
+    .identity-row { margin-bottom:8px; gap:10px; }
+    input,.identity-row input,.message-composer { background:#22252b; border:1px solid #343740; border-radius:10px; }
+    input { padding:12px 14px; }
+    .message-composer { border-radius:15px; padding:5px 7px; gap:7px; }
+    #mensagem { padding:13px 10px; }
+    .utility-button { width:42px; height:42px; flex:0 0 42px; border:1px solid #5b4b23; border-radius:50%; background:#24262b; color:#ffce43; font-size:22px; }
+    .send-button { width:44px; height:44px; flex:0 0 44px; background:#ffce43; color:#171717; border-radius:50%; font-size:20px; box-shadow:0 3px 12px #ffce4322; }
+    .send-button:hover { background:#ffe17a; transform:translateY(-1px); }
+    .image-button { width:38px; height:38px; flex:0 0 38px; border:0; border-radius:11px; background:transparent; color:#c7cad1; font-size:19px; }
+    .image-button:hover { background:#30333a; color:#ffce43; }
+    .message-image { border-radius:12px; border:1px solid #49412e; }
+    .member-online-dot { box-shadow:0 0 8px #8fcf8a66; }
+    #toast { background:#22252b; border:1px solid #665222; border-radius:12px; }
+    .auth-overlay { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(10,11,14,.82); backdrop-filter:blur(12px); }
+    .auth-card { width:min(100%,420px); background:#202228; border:1px solid #42454d; border-radius:20px; padding:28px; box-shadow:0 24px 80px #0008; }
+    .auth-brand { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+    .auth-orb { width:42px;height:42px;border:2px solid #ffce43;border-radius:50%;box-shadow:0 0 18px #ffce4350; }
+    .auth-card h1 { font-size:24px; margin:0 0 6px; color:#f6f6f7; }
+    .auth-card p { color:#aeb2bc; line-height:1.5; margin:0 0 18px; }
+    .auth-card label { display:block; color:#d4d6dc; font-size:12px; font-weight:650; margin:12px 0 6px; }
+    .auth-card input { width:100%; }
+    .auth-actions { display:flex; gap:9px; margin-top:18px; }
+    .auth-actions button { flex:1; border-radius:10px; border:1px solid #4a4d54; padding:11px; background:#292c32; color:#e7e8eb; }
+    .auth-actions button.primary { background:#ffce43; color:#171717; border-color:#ffce43; font-weight:750; }
+    .auth-error { min-height:18px; margin-top:10px; color:#ff9289; font-size:12px; }
+    #logoutButton { background:transparent; color:#aeb2bc; border:0; font-size:11px; padding:4px; }
+    #logoutButton:hover { color:#ffce43; }
+    @media(max-width:760px) {
+      .server-rail { display:none; }
+      .channel-sidebar { display:none; }
+      .main-column { width:100%; }
+      .member-sidebar { display:none !important; }
+      .chat-header { height:56px; flex-basis:56px; padding:0 14px; }
+      .chat-header-topic,.header-divider { display:none; }
+      .chat-header-name { font-size:17px; }
+      .welcome { margin:12px 12px 18px; padding:15px; }
+      .welcome h2 { font-size:19px; }
+      .message-row { padding:5px 10px; gap:7px; }
+      .message-content { max-width:88%; padding:9px 11px; }
+      .message-row.grouped .message-content { margin-left:39px; }
+      .message-row.own-message.grouped .message-content { margin-left:0; }
+      .message-avatar,.message-avatar-spacer { width:32px; flex-basis:32px; height:32px; }
+      .composer-area { padding:8px 9px max(10px,env(safe-area-inset-bottom)); }
+      .identity-row { gap:6px; }
+      .identity-row input { width:50%; padding:10px; font-size:12px; }
+      .message-composer { gap:3px; padding:4px; }
+      .utility-button { width:36px;height:36px;flex-basis:36px; }
+      .image-button { width:34px;height:34px;flex-basis:34px; }
+      .send-button { width:38px;height:38px;flex-basis:38px; }
+      #mensagem { font-size:16px; padding:10px 7px; }
+    }
+    @media(max-width:390px) { #onlineCount { display:none; } .auth-card { padding:22px; } }
   </style>
 
 </head>
@@ -555,6 +642,7 @@
         <div class="user-panel-status" id="selfStatus">Not connected</div>
       </div>
       <span class="connection-dot" id="connectionDot" aria-hidden="true"></span>
+      <button id="logoutButton" type="button" title="Sign out">Log out</button>
     </div>
   </aside>
 
@@ -584,6 +672,8 @@
       <div class="message-composer">
         <button class="utility-button" id="backgroundButton" type="button" title="Choose background image" aria-label="Choose background image">+</button>
         <input type="file" id="backgroundFile" accept="image/*" hidden>
+        <button class="image-button" id="imageButton" type="button" title="Send an image" aria-label="Send an image">▧</button>
+        <input type="file" id="imageFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         <input type="text" id="mensagem" placeholder="Write a message..." autocomplete="off" maxlength="4000" aria-label="Message">
         <button class="send-button" id="sendButton" type="button" title="Send message" aria-label="Send message">➤</button>
       </div>
@@ -595,10 +685,46 @@
     <div id="memberList"><p class="member-empty">Connecting to the lobby…</p></div>
   </aside>
 
+  <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <form class="auth-card" id="authForm">
+      <div class="auth-brand"><span class="auth-orb"></span><div><h1 id="authTitle">Welcome to Lobby Zero</h1><p style="margin:4px 0 0">Your stories, your space.</p></div></div>
+      <label for="authUsername">Username</label><input id="authUsername" name="username" autocomplete="username" minlength="3" maxlength="32" required pattern="[A-Za-z0-9_-]{3,32}" placeholder="Your username">
+      <label for="authPassword">Password</label><input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="200" required placeholder="At least 8 characters">
+      <div class="auth-actions"><button class="primary" type="submit" id="loginAction">Log in</button><button type="button" id="registerAction">Create account</button></div>
+      <div class="auth-error" id="authError" role="alert"></div>
+      <p style="font-size:11px;margin:12px 0 0">Accounts are secured by the server. Use a unique password.</p>
+    </form>
+  </div>
   <div id="toast" role="status" aria-live="polite"></div>
 
   <script>
     (() => {
+      const authOverlay = document.getElementById('authOverlay');
+      const authForm = document.getElementById('authForm');
+      const authUsername = document.getElementById('authUsername');
+      const authPassword = document.getElementById('authPassword');
+      const authError = document.getElementById('authError');
+      let authBusy = false;
+      async function authRequest(path) {
+        if (authBusy) return;
+        authBusy = true;
+        authError.textContent = '';
+        const submit = document.getElementById('loginAction');
+        const register = document.getElementById('registerAction');
+        submit.disabled = true; register.disabled = true;
+        try {
+          const response = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({username:authUsername.value.trim(), password:authPassword.value}) });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Could not sign in.');
+          location.reload();
+        } catch (error) { authError.textContent = error.message || 'Could not connect to the server.'; }
+        finally { authBusy = false; submit.disabled = false; register.disabled = false; }
+      }
+      authForm.addEventListener('submit', event => { event.preventDefault(); authRequest('/api/login'); });
+      document.getElementById('registerAction').addEventListener('click', () => { if (authForm.reportValidity()) authRequest('/api/register'); });
+      document.getElementById('logoutButton').addEventListener('click', async () => { await fetch('/api/logout', {method:'POST', credentials:'same-origin'}); location.reload(); });
+      fetch('/api/me', {credentials:'same-origin'}).then(async r => { if (r.ok) { const user = await r.json(); authOverlay.hidden = true; authOverlay.style.display='none'; if (!inputNome.value.trim()) inputNome.value = user.username; } else { authOverlay.hidden = false; } }).catch(() => { authError.textContent = 'Unable to reach the account server.'; });
+
       const statusEl = document.getElementById('status');
       const chat = document.getElementById('chat');
       const inputNome = document.getElementById('personagem');
@@ -653,6 +779,37 @@
         };
         reader.readAsDataURL(file);
       });
+      const imageButton = document.getElementById('imageButton');
+      const imageFile = document.getElementById('imageFile');
+      let lastImageAttempt = 0;
+      imageButton.addEventListener('click', () => imageFile.click());
+      imageFile.addEventListener('change', () => {
+        const file = imageFile.files && imageFile.files[0];
+        imageFile.value = '';
+        if (!file) return;
+        if (!['image/png','image/jpeg','image/gif','image/webp'].includes(file.type)) { showToast('Use a PNG, JPEG, GIF or WebP image.'); return; }
+        if (file.size > 2 * 1024 * 1024) { showToast('Images must be smaller than 2 MB.'); return; }
+        const remaining = 5000 - (Date.now() - lastImageAttempt);
+        if (remaining > 0) { showToast(`Wait ${Math.ceil(remaining / 1000)} seconds before sending another image.`); return; }
+        if (!socket.connected) { showToast('Not connected. Image was not sent.'); return; }
+        const reader = new FileReader();
+        imageButton.disabled = true;
+        reader.onload = () => {
+          const imageData = String(reader.result || '');
+          const personagem = inputNome.value.trim() || 'Anonymous Wanderer';
+          const foto = validImageUrl(inputFoto.value.trim()) ? inputFoto.value.trim() : '';
+          registerPresence();
+          socket.emit('msg_rp', { personagem, texto:'', foto, imagem:imageData }, response => {
+            if (response && response.error) { showToast(response.error); imageButton.disabled = false; return; }
+            lastImageAttempt = Date.now();
+            showToast('Image sent. You can send another in 5 seconds.');
+            imageButton.disabled = false;
+          });
+        };
+        reader.onerror = () => { imageButton.disabled = false; showToast('Could not read that image.'); };
+        reader.readAsDataURL(file);
+      });
+
       const mutedUsers = new Set();
       const participants = new Map();
       const defaultAvatar = 'https://placehold.co/90x90/17140b/ffd15a?text=RP';
@@ -843,7 +1000,7 @@
       }
 
       function renderMessage(data) {
-        if (!data || typeof data.texto !== 'string') return;
+        if (!data || (typeof data.texto !== 'string' && !data.imagem)) return;
         updateParticipants(data);
         if (data.id && mutedUsers.has(data.id)) return;
 
@@ -882,7 +1039,7 @@
           name.textContent = typeof data.personagem === 'string' && data.personagem.trim() ? data.personagem : 'Anonymous Wanderer';
           const time = document.createElement('time');
           time.className = 'message-time';
-          time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          time.textContent = new Date(data.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           meta.append(name, time);
           if (data.id && data.id !== socket.id) {
             const actions = document.createElement('span');
@@ -898,7 +1055,17 @@
           content.appendChild(meta);
         }
 
-        if (data.texto.startsWith('__DICE_ROLL__:')) {
+        if (data.imagem && /^data:image\/(png|jpeg|gif|webp);base64,/.test(data.imagem)) {
+          const image = document.createElement('img');
+          image.className = 'message-image';
+          image.src = data.imagem;
+          image.alt = 'Image shared in chat';
+          image.loading = 'lazy';
+          content.appendChild(image);
+          if (data.texto && data.texto.trim()) {
+            const caption = document.createElement('div'); caption.className = 'message-text'; caption.textContent = data.texto; content.appendChild(caption);
+          }
+        } else if ((data.texto || '').startsWith('__DICE_ROLL__:')) {
           const result = data.texto.slice('__DICE_ROLL__:'.length);
           if (/^(?:[1-9]|1\d|20)$/.test(result)) content.appendChild(buildDice(result));
           else {

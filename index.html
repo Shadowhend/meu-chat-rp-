@@ -299,6 +299,39 @@
     }
     @media (max-width: 390px) { .identity-row input { font-size: 11px; padding: 8px; } }
 
+
+    /* Own messages align right; other participants remain on the left. */
+    .message-row.own-message { justify-content: flex-end; }
+    .message-row.own-message .message-content { flex: 0 1 auto; max-width: min(78%, 820px); }
+    .message-row.own-message .message-meta { justify-content: flex-end; }
+    .message-row.own-message .message-text,
+    .message-row.own-message .dice-container { margin-left: auto; }
+    .message-row.own-message .message-text {
+      width: fit-content; max-width: 100%; padding: 9px 12px;
+      background: #343943; border: 1px solid #454b57; border-radius: 14px 14px 3px 14px;
+      text-align: left;
+    }
+    .message-row.own-message .message-avatar,
+    .message-row.own-message .message-avatar-spacer { order: 2; }
+    .message-row.own-message .message-content { order: 1; }
+    .message-row.own-message .dice-container { width: fit-content; }
+    .message-image { display:block; max-width:100%; max-height:360px; object-fit:contain; border-radius:10px; }
+    @media (max-width: 680px) {
+      body { min-height: 100dvh; height: 100dvh; overflow: hidden; }
+      .main-column { min-width: 0; width: 100%; }
+      .message-row { gap: 8px; padding-left: 10px; padding-right: 10px; }
+      .message-content { min-width: 0; }
+      .message-row.own-message .message-content { max-width: 84%; }
+      .message-row.own-message .message-avatar,
+      .message-row.own-message .message-avatar-spacer { display: none; }
+      .message-row.own-message .message-text { padding: 8px 10px; }
+      .composer-area { padding-bottom: max(9px, env(safe-area-inset-bottom)); }
+      .message-actions { opacity: 1; }
+      .member-sidebar { display: none !important; }
+      .identity-row input { min-width: 0; width: 50%; }
+      #mensagem { min-width: 0; }
+    }
+
     /* Lobby Zero — Eclipse: custom skin, not a Discord clone */
     :root {
       --server-rail:#050505; --sidebar:#080807; --chat-bg:#050505;
@@ -408,6 +441,39 @@
       #status { max-width:78px; overflow:hidden; text-overflow:ellipsis; }
       .identity-row input { font-size:10px; padding:8px 6px; }
       .message-row { padding-left:10px; padding-right:10px; }
+    }
+
+  
+    /* Own messages align right; other participants remain on the left. */
+    .message-row.own-message { justify-content: flex-end; }
+    .message-row.own-message .message-content { flex: 0 1 auto; max-width: min(78%, 820px); }
+    .message-row.own-message .message-meta { justify-content: flex-end; }
+    .message-row.own-message .message-text,
+    .message-row.own-message .dice-container { margin-left: auto; }
+    .message-row.own-message .message-text {
+      width: fit-content; max-width: 100%; padding: 9px 12px;
+      background: #343943; border: 1px solid #454b57; border-radius: 14px 14px 3px 14px;
+      text-align: left;
+    }
+    .message-row.own-message .message-avatar,
+    .message-row.own-message .message-avatar-spacer { order: 2; }
+    .message-row.own-message .message-content { order: 1; }
+    .message-row.own-message .dice-container { width: fit-content; }
+    .message-image { display:block; max-width:100%; max-height:360px; object-fit:contain; border-radius:10px; }
+    @media (max-width: 680px) {
+      body { min-height: 100dvh; height: 100dvh; overflow: hidden; }
+      .main-column { min-width: 0; width: 100%; }
+      .message-row { gap: 8px; padding-left: 10px; padding-right: 10px; }
+      .message-content { min-width: 0; }
+      .message-row.own-message .message-content { max-width: 84%; }
+      .message-row.own-message .message-avatar,
+      .message-row.own-message .message-avatar-spacer { display: none; }
+      .message-row.own-message .message-text { padding: 8px 10px; }
+      .composer-area { padding-bottom: max(9px, env(safe-area-inset-bottom)); }
+      .message-actions { opacity: 1; }
+      .member-sidebar { display: none !important; }
+      .identity-row input { min-width: 0; width: 50%; }
+      #mensagem { min-width: 0; }
     }
 
   </style>
@@ -788,7 +854,7 @@
         lastMessageTime = now;
 
         const row = document.createElement('article');
-        row.className = 'message-row' + (grouped ? ' grouped' : '');
+        row.className = 'message-row' + (grouped ? ' grouped' : '') + (data.id && data.id === socket.id ? ' own-message' : '');
         row.dataset.userId = data.id || '';
         if (data.id && mutedUsers.has(data.id)) row.hidden = true;
 

@@ -160,7 +160,7 @@ io.on('connection', socket => {
   socket.on('msg_rp', (data, ack) => {
     data = data || {};
     const text = typeof data.texto === 'string' ? data.texto.slice(0, 4000) : '';
-    const image = data.imagem || '';
+    const image = typeof data.imagem === 'string' ? data.imagem : '';
     if (!text.trim() && !image) { if (typeof ack === 'function') ack({ error: 'Message is empty.' }); return; }
     if (image) {
       if (!isAllowedImage(image)) { if (typeof ack === 'function') ack({ error: 'Image must be PNG, JPEG, GIF or WebP and smaller than 2 MB.' }); return; }
@@ -169,8 +169,16 @@ io.on('connection', socket => {
       imageLastSent.set(socket.id, now);
     }
     const current = online.get(socket.id) || { personagem: accountName, foto: '' };
-    const message = { id: socket.id, personagem: safeName(data.personagem) || current.personagem || accountName, texto: text, foto: safePhoto(data.foto) || current.foto || '', imagem, timestamp: Date.now() };
-    history.push(message); if (history.length > 100) history.shift();
+    const message = {
+      id: socket.id,
+      personagem: safeName(data.personagem) || current.personagem || accountName,
+      texto: text,
+      foto: safePhoto(data.foto) || current.foto || '',
+      imagem: image,
+      timestamp: Date.now()
+    };
+    history.push(message);
+    if (history.length > 100) history.shift();
     socket.broadcast.emit('enviar_msg_rp', message);
     socket.emit('enviar_msg_rp', message);
     if (typeof ack === 'function') ack({ ok: true });

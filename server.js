@@ -97,8 +97,7 @@ app.post('/api/register', async (req, res) => {
   try {
     const username = safeName(req.body && req.body.username);
     const password = req.body && req.body.password;
-    const avatarUrl = safePhoto(req.body && req.body.avatarUrl);
-    if (req.body && req.body.avatarUrl && !avatarUrl) return res.status(400).json({ error: 'Avatar must be a valid HTTP or HTTPS image URL.' });
+    const avatarUrl = '';
     if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) return res.status(400).json({ error: 'Username must be 3–32 characters (letters, numbers, _ or -).' });
     if (typeof password !== 'string' || password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Password must be 8–200 characters.' });
     const key = username.toLowerCase();
@@ -125,16 +124,21 @@ app.post('/api/login', async (req, res) => {
     const candidate = Buffer.from(await hashPassword(password, user.salt), 'hex');
     const stored = Buffer.from(user.password_hash, 'hex');
     if (candidate.length !== stored.length || !crypto.timingSafeEqual(candidate, stored)) return res.status(401).json({ error: 'Incorrect username or password.' });
-    let avatarUrl = user.avatar_url || '';
-    if (typeof (req.body && req.body.avatarUrl) === 'string' && req.body.avatarUrl.trim()) {
-      const suppliedAvatar = safePhoto(req.body.avatarUrl);
-      if (!suppliedAvatar) return res.status(400).json({ error: 'Avatar must be a valid HTTP or HTTPS image URL.' });
-      avatarUrl = suppliedAvatar;
-      await pool.query('UPDATE lobbyzero_users SET avatar_url = $1 WHERE username_key = $2', [avatarUrl, username.toLowerCase()]);
-    }
+    const avatarUrl = user.avatar_url || '';
     setSession(res, { username: user.username });
     res.json({ username: user.username, avatarUrl });
   } catch (error) { console.error('Login failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
+});
+app.post('/api/avatar', async (req, res) => {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ error: 'Log in to save your avatar URL.' });
+    const raw = req.body && typeof req.body.avatarUrl === 'string' ? req.body.avatarUrl.trim() : '';
+    const avatarUrl = raw ? safePhoto(raw) : '';
+    if (raw && !avatarUrl) return res.status(400).json({ error: 'Avatar must be a valid HTTP or HTTPS URL.' });
+    await pool.query('UPDATE lobbyzero_users SET avatar_url = $1 WHERE username_key = $2', [avatarUrl, user.username.toLowerCase()]);
+    res.json({ ok: true, avatarUrl });
+  } catch (error) { console.error('Avatar update failed:', error.message); res.status(500).json({ error: 'Could not save avatar URL.' }); }
 });
 app.post('/api/logout', (req, res) => { clearSession(res); res.json({ ok: true }); });
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));

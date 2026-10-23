@@ -198,9 +198,9 @@ io.on('connection', socket => {
       const person = online.get(socket.id);
       if (!person) return ack({ error: 'Register your presence before saving a sheet.' });
       const input = data && data.sheet && typeof data.sheet === 'object' ? data.sheet : {};
-      const allowed = ['characterName','age','species','role','appearance','personality','backstory','abilities','extra'];
+      const allowed = ['content'];
       const sheet = {};
-      for (const key of allowed) sheet[key] = typeof input[key] === 'string' ? input[key].slice(0, key === 'backstory' ? 5000 : key === 'abilities' || key === 'extra' ? 3000 : key === 'appearance' || key === 'personality' ? 2000 : 120) : '';
+      for (const key of allowed) sheet[key] = typeof input[key] === 'string' ? input[key].slice(0, 12000) : '';
       if (socket.user) {
         await pool.query(`INSERT INTO lobbyzero_character_sheets (username_key, sheet, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (username_key) DO UPDATE SET sheet = EXCLUDED.sheet, updated_at = NOW()`, [socket.user.username.toLowerCase(), JSON.stringify(sheet)]);
       }

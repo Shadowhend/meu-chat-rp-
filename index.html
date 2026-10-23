@@ -974,15 +974,7 @@
       <p id="sheetHint" style="color:#aeb0b8;font-size:13px;margin:-8px 0 16px">Your character details</p>
       <form id="sheetForm">
         <div class="sheet-grid" id="sheetFields">
-          <div class="sheet-field"><label for="sheetCharacterName">Character name</label><input id="sheetCharacterName" name="characterName" maxlength="80" placeholder="Character name"></div>
-          <div class="sheet-field"><label for="sheetAge">Age</label><input id="sheetAge" name="age" maxlength="40" placeholder="Age"></div>
-          <div class="sheet-field"><label for="sheetSpecies">Species / race</label><input id="sheetSpecies" name="species" maxlength="100" placeholder="Human, elf, etc."></div>
-          <div class="sheet-field"><label for="sheetRole">Role / occupation</label><input id="sheetRole" name="role" maxlength="120" placeholder="Knight, student, mercenary..."></div>
-          <div class="sheet-field full"><label for="sheetAppearance">Appearance</label><textarea id="sheetAppearance" name="appearance" maxlength="2000" placeholder="Describe the character's appearance"></textarea></div>
-          <div class="sheet-field full"><label for="sheetPersonality">Personality</label><textarea id="sheetPersonality" name="personality" maxlength="2000" placeholder="Personality, habits, mannerisms"></textarea></div>
-          <div class="sheet-field full"><label for="sheetBackstory">Backstory</label><textarea id="sheetBackstory" name="backstory" maxlength="5000" placeholder="Character history"></textarea></div>
-          <div class="sheet-field full"><label for="sheetAbilities">Abilities / skills</label><textarea id="sheetAbilities" name="abilities" maxlength="3000" placeholder="Powers, skills, equipment"></textarea></div>
-          <div class="sheet-field full"><label for="sheetExtra">Extra details</label><textarea id="sheetExtra" name="extra" maxlength="3000" placeholder="Anything else people should know"></textarea></div>
+          <div class="sheet-field full"><label for="sheetContent">Character sheet</label><textarea id="sheetContent" name="content" maxlength="12000" placeholder="Write your character sheet here..." style="min-height:320px"></textarea></div>
         </div>
         <div class="sheet-actions"><button type="button" class="sheet-close" id="sheetCancel">Cancel</button><button type="submit" class="sheet-save" id="sheetSave">Save character sheet</button></div>
       </form>
@@ -1156,7 +1148,7 @@
       const sheetTitle = document.getElementById('sheetTitle');
       const sheetHint = document.getElementById('sheetHint');
       const sheetSave = document.getElementById('sheetSave');
-      const sheetFields = ['characterName','age','species','role','appearance','personality','backstory','abilities','extra'];
+      const sheetFields = ['content'];
       let activeSheetPerson = null;
       let editingOwnSheet = false;
       const sheetInputs = Object.fromEntries(sheetFields.map(key => [key, document.getElementById('sheet' + key[0].toUpperCase() + key.slice(1))]));

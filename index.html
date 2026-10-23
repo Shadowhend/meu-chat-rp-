@@ -940,6 +940,8 @@
       <div class="auth-brand"><span class="auth-orb"></span><div><h1 id="authTitle">Welcome to Lobby Zero</h1><p style="margin:4px 0 0">Your stories, your space.</p></div></div>
       <label for="authUsername">Username</label><input id="authUsername" name="username" autocomplete="username" minlength="3" maxlength="32" required pattern="[A-Za-z0-9_-]{3,32}" placeholder="Your username">
       <label for="authPassword">Password</label><input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="200" required placeholder="At least 8 characters">
+      <label for="authAvatarUrl">Avatar image URL <span style="font-weight:400;color:#969ba5">(optional)</span></label><input id="authAvatarUrl" name="avatarUrl" type="url" autocomplete="url" maxlength="2000" placeholder="https://...">
+      <p style="font-size:11px;margin:6px 0 0">Your avatar URL is saved to your account. On login, leave it blank to keep your saved avatar.</p>
       <div class="auth-actions"><button class="primary" type="submit" id="loginAction">Log in</button><button type="button" id="registerAction">Create account</button></div><button type="button" id="guestAction" style="width:100%;margin-top:10px;border:1px solid #555963;border-radius:10px;padding:11px;background:transparent;color:#e7e8eb">Continue as guest</button>
       <div class="auth-error" id="authError" role="alert"></div>
       <p style="font-size:11px;margin:12px 0 0">Accounts are secured by the server. Use a unique password.</p>
@@ -953,6 +955,7 @@
       const authForm = document.getElementById('authForm');
       const authUsername = document.getElementById('authUsername');
       const authPassword = document.getElementById('authPassword');
+      const authAvatarUrl = document.getElementById('authAvatarUrl');
       const authError = document.getElementById('authError');
       let authBusy = false;
       let signedIn = false;
@@ -972,7 +975,7 @@
         const register = document.getElementById('registerAction');
         submit.disabled = true; register.disabled = true;
         try {
-          const response = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({username:authUsername.value.trim(), password:authPassword.value}) });
+          const response = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({username:authUsername.value.trim(), password:authPassword.value, avatarUrl:authAvatarUrl.value.trim()}) });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Could not sign in.');
           location.reload();
@@ -986,7 +989,9 @@
           const user = await r.json(); signedIn = true; hideAuth();
           document.getElementById('logoutButton').textContent = 'Log out';
           document.getElementById('topLoginButton').textContent = user.username;
-          if (!inputNome.value.trim()) inputNome.value = user.username;
+          if (!inputNome.value.trim() || inputNome.value === 'Anonymous Wanderer') inputNome.value = user.username;
+          if (user.avatarUrl && validImageUrl(user.avatarUrl)) inputFoto.value = user.avatarUrl;
+          updateSelfPreview();
         } else {
           signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; hideAuth();
         }

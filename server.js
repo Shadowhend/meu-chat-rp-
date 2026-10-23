@@ -39,8 +39,10 @@ async function initDatabase() {
     username VARCHAR(32) NOT NULL,
     salt VARCHAR(64) NOT NULL,
     password_hash VARCHAR(128) NOT NULL,
+    avatar_url VARCHAR(2000) NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await pool.query(`ALTER TABLE lobbyzero_users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(2000) NOT NULL DEFAULT ''`);
   console.log('PostgreSQL ready.');
 }
 function safeName(value) { return typeof value === 'string' ? value.trim().slice(0, 32) : ''; }
@@ -69,8 +71,8 @@ async function readToken(token) {
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!data.username || !Number.isFinite(data.exp) || data.exp < Date.now()) return null;
-    const result = await pool.query('SELECT username FROM lobbyzero_users WHERE username_key = $1', [data.username.toLowerCase()]);
-    return result.rowCount ? { username: result.rows[0].username } : null;
+    const result = await pool.query('SELECT username, avatar_url FROM lobbyzero_users WHERE username_key = $1', [data.username.toLowerCase()]);
+    return result.rowCount ? { username: result.rows[0].username, avatarUrl: result.rows[0].avatar_url || '' } : null;
   } catch (_) { return null; }
 }
 async function currentUser(req) { return readToken(cookieValue(req, SESSION_COOKIE)); }
@@ -94,19 +96,21 @@ app.post('/api/register', async (req, res) => {
   try {
     const username = safeName(req.body && req.body.username);
     const password = req.body && req.body.password;
+    const avatarUrl = safePhoto(req.body && req.body.avatarUrl);
+    if (req.body && req.body.avatarUrl && !avatarUrl) return res.status(400).json({ error: 'Avatar must be a valid HTTP or HTTPS image URL.' });
     if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) return res.status(400).json({ error: 'Username must be 3–32 characters (letters, numbers, _ or -).' });
     if (typeof password !== 'string' || password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Password must be 8–200 characters.' });
     const key = username.toLowerCase();
     const salt = crypto.randomBytes(16).toString('hex');
     const passwordHash = await hashPassword(password, salt);
     try {
-      await pool.query('INSERT INTO lobbyzero_users (username_key, username, salt, password_hash) VALUES ($1, $2, $3, $4)', [key, username, salt, passwordHash]);
+      await pool.query('INSERT INTO lobbyzero_users (username_key, username, salt, password_hash, avatar_url) VALUES ($1, $2, $3, $4, $5)', [key, username, salt, passwordHash, avatarUrl]);
     } catch (error) {
       if (error.code === '23505') return res.status(409).json({ error: 'That username is already taken.' });
       throw error;
     }
     setSession(res, { username });
-    res.json({ username });
+    res.json({ username, avatarUrl });
   } catch (error) { console.error('Registration failed:', error.message); res.status(500).json({ error: 'Could not create account. Please try again.' }); }
 });
 app.post('/api/login', async (req, res) => {
@@ -114,14 +118,21 @@ app.post('/api/login', async (req, res) => {
     const username = safeName(req.body && req.body.username);
     const password = req.body && req.body.password;
     if (typeof password !== 'string') return res.status(401).json({ error: 'Incorrect username or password.' });
-    const result = await pool.query('SELECT username, salt, password_hash FROM lobbyzero_users WHERE username_key = $1', [username.toLowerCase()]);
+    const result = await pool.query('SELECT username, salt, password_hash, avatar_url FROM lobbyzero_users WHERE username_key = $1', [username.toLowerCase()]);
     if (!result.rowCount) return res.status(401).json({ error: 'Incorrect username or password.' });
     const user = result.rows[0];
     const candidate = Buffer.from(await hashPassword(password, user.salt), 'hex');
     const stored = Buffer.from(user.password_hash, 'hex');
     if (candidate.length !== stored.length || !crypto.timingSafeEqual(candidate, stored)) return res.status(401).json({ error: 'Incorrect username or password.' });
+    let avatarUrl = user.avatar_url || '';
+    if (typeof (req.body && req.body.avatarUrl) === 'string' && req.body.avatarUrl.trim()) {
+      const suppliedAvatar = safePhoto(req.body.avatarUrl);
+      if (!suppliedAvatar) return res.status(400).json({ error: 'Avatar must be a valid HTTP or HTTPS image URL.' });
+      avatarUrl = suppliedAvatar;
+      await pool.query('UPDATE lobbyzero_users SET avatar_url = $1 WHERE username_key = $2', [avatarUrl, username.toLowerCase()]);
+    }
     setSession(res, { username: user.username });
-    res.json({ username: user.username });
+    res.json({ username: user.username, avatarUrl });
   } catch (error) { console.error('Login failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
 });
 app.post('/api/logout', (req, res) => { clearSession(res); res.json({ ok: true }); });
@@ -154,7 +165,7 @@ io.on('connection', socket => {
   socket.emit('carregar_historico', history);
   socket.on('registrar_participante', data => {
     data = data || {};
-    online.set(socket.id, { personagem: safeName(data.personagem) || accountName, foto: safePhoto(data.foto), accountName });
+    online.set(socket.id, { personagem: safeName(data.personagem) || accountName, foto: safePhoto(data.foto) || (socket.user && socket.user.avatarUrl) || '', accountName });
     emitOnline();
   });
   socket.on('msg_rp', (data, ack) => {
@@ -173,7 +184,7 @@ io.on('connection', socket => {
       id: socket.id,
       personagem: safeName(data.personagem) || current.personagem || accountName,
       texto: text,
-      foto: safePhoto(data.foto) || current.foto || '',
+      foto: safePhoto(data.foto) || current.foto || (socket.user && socket.user.avatarUrl) || '',
       imagem: image,
       timestamp: Date.now()
     };

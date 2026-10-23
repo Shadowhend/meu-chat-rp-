@@ -845,10 +845,10 @@
     .members-toggle svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
     .chat-header { position:relative; }
     /* Keep the connection status away from the controls; place Login beside Online at the far right. */
-    .members-toggle { position:static; right:auto; top:auto; transform:none; z-index:2; order:6; margin:0 0 0 8px; }
+    .members-toggle { position:static; right:auto; top:auto; transform:none; z-index:2; order:7; margin:0 0 0 8px; }
     .top-login-button { order:5; margin-left:auto !important; margin-right:0; }
-    .top-logout-button { display:none; border:1px solid #45464d; border-radius:8px; padding:6px 9px; background:transparent; color:#bfc1c8; font-size:12px; cursor:pointer; white-space:nowrap; }
-    .top-logout-button:hover { background:#252529; color:#fff; border-color:#777982; }
+    .top-logout-button { display:none; order:6; flex:0 0 auto; border:1px solid rgba(190,82,82,.20); border-radius:8px; padding:6px 9px; margin:0; background:rgba(105,30,30,.08); color:rgba(225,135,135,.68); font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap; opacity:.72; transition:background .2s ease,border-color .2s ease,color .2s ease,opacity .2s ease; }
+    .top-logout-button:hover,.top-logout-button:focus-visible { background:rgba(125,38,38,.22); border-color:rgba(220,100,100,.48); color:#efaaaa; opacity:1; outline:none; }
     .chat-header #onlineCount { order:3; margin:0 0 0 8px; white-space:nowrap; }
     .chat-header #status { order:4; margin-left:8px; white-space:nowrap; }
     .chat-header .chat-header-topic { order:2; }

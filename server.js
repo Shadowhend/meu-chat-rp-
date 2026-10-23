@@ -29,9 +29,14 @@ app.use(express.static(__dirname, { index: false }));
 
 const SESSION_COOKIE = 'lobbyzero_session';
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
-const history = [];
+const histories = new Map();
 const online = new Map();
+const COMMUNITIES = ['comunidade-1', 'comunidade-2', 'comunidade-3'];
+function safeCommunity(value) { return COMMUNITIES.includes(value) ? value : COMMUNITIES[0]; }
+function roomHistory(community) { if (!histories.has(community)) histories.set(community, []); return histories.get(community); }
 const imageLastSent = new Map();
+// Mutes apply to a guest connection for as long as that connection stays online.
+const mutedGuests = new Set();
 
 async function initDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_users (
@@ -43,8 +48,18 @@ async function initDatabase() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query(`ALTER TABLE lobbyzero_users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(2000) NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_community_admins (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_suspensions (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', suspended_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_community_admins (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_suspensions (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', suspended_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_character_sheets (username_key VARCHAR(32) PRIMARY KEY REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, sheet JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
-  console.log('PostgreSQL ready.');
+  const bootstrap = safeName(process.env.ADMIN_BOOTSTRAP_USERNAME || '');
+  if (bootstrap) {
+    const exists = await pool.query('SELECT username_key FROM lobbyzero_users WHERE username_key = $1', [bootstrap.toLowerCase()]);
+    if (exists.rowCount) for (const community of COMMUNITIES) await pool.query('INSERT INTO lobbyzero_community_admins (username_key, community) VALUES ($1, $2) ON CONFLICT DO NOTHING', [bootstrap.toLowerCase(), community]);
+    else console.warn('ADMIN_BOOTSTRAP_USERNAME is set but that account does not exist yet. Register the account, then restart the service to grant initial admin access.');
+  }
+  console.log('PostgreSQL ready. Communities:', COMMUNITIES.join(', '));
 }
 function safeName(value) { return typeof value === 'string' ? value.trim().slice(0, 32) : ''; }
 function cookieValue(req, name) {
@@ -129,6 +144,94 @@ app.post('/api/login', async (req, res) => {
     res.json({ username: user.username, avatarUrl });
   } catch (error) { console.error('Login failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
 });
+async function adminUser(req, res, community) {
+  const user = await currentUser(req);
+  if (!user) { res.status(401).json({ error: 'Faça login para acessar a administração.' }); return null; }
+  const allowed = await pool.query('SELECT 1 FROM lobbyzero_community_admins WHERE username_key = $1 AND community = $2', [user.username.toLowerCase(), safeCommunity(community)]);
+  if (!allowed.rowCount) { res.status(403).json({ error: 'Você não é administrador desta comunidade.' }); return null; }
+  return user;
+}
+app.get('/api/admin/communities', async (req, res) => {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ error: 'Faça login para acessar a administração.' });
+    const result = await pool.query('SELECT community FROM lobbyzero_community_admins WHERE username_key = $1 ORDER BY community', [user.username.toLowerCase()]);
+    res.json({ communities: result.rows.map(row => row.community), allCommunities: COMMUNITIES });
+  } catch (error) { console.error('Admin communities failed:', error.message); res.status(500).json({ error: 'Não foi possível carregar as permissões.' }); }
+});
+app.get('/api/admin/overview', async (req, res) => {
+  try {
+    const community = safeCommunity(req.query.community);
+    const user = await adminUser(req, res, community); if (!user) return;
+    const users = await pool.query(`SELECT u.username, u.created_at, EXISTS(SELECT 1 FROM lobbyzero_suspensions s WHERE s.username_key=u.username_key AND s.community=$1 AND (s.suspended_until IS NULL OR s.suspended_until > NOW())) AS suspended FROM lobbyzero_users u ORDER BY u.created_at DESC LIMIT 300`, [community]);
+    const totalUsers = await pool.query('SELECT COUNT(*)::int AS count FROM lobbyzero_users');
+    const onlineUsers = Array.from(online.entries()).filter(([, person]) => person.community === community).map(([id, person]) => ({ id, username: person.accountName || 'Guest', character: person.personagem || '', isAccount: !!person.isAccount, muted: mutedGuests.has(id) }));
+    res.json({ community, users: users.rows, online: onlineUsers, onlineCount: onlineUsers.length, registeredCount: totalUsers.rows[0].count, messagesInMemory: roomHistory(community).length });
+  } catch (error) { console.error('Admin overview failed:', error.message); res.status(500).json({ error: 'Não foi possível carregar o painel.' }); }
+});
+app.post('/api/admin/roles', async (req, res) => {
+  try {
+    const community = safeCommunity(req.body && req.body.community);
+    const actor = await adminUser(req, res, community); if (!actor) return;
+    const username = safeName(req.body && req.body.username), grant = !!(req.body && req.body.grant);
+    const target = await pool.query('SELECT username_key FROM lobbyzero_users WHERE username_key=$1', [username.toLowerCase()]);
+    if (!target.rowCount) return res.status(404).json({ error: 'Cadastre a conta antes de torná-la administradora.' });
+    if (grant) await pool.query('INSERT INTO lobbyzero_community_admins (username_key, community) VALUES ($1,$2) ON CONFLICT DO NOTHING', [username.toLowerCase(), community]);
+    else { if (username.toLowerCase() === actor.username.toLowerCase()) return res.status(400).json({ error: 'Você não pode remover sua própria permissão por aqui.' }); await pool.query('DELETE FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]); }
+    res.json({ ok: true, admin: grant, community });
+  } catch (error) { console.error('Admin role update failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar a permissão administrativa.' }); }
+});
+app.post('/api/admin/suspensions', async (req, res) => {
+  try {
+    const community = safeCommunity(req.body && req.body.community);
+    const actor = await adminUser(req, res, community); if (!actor) return;
+    const username = safeName(req.body && req.body.username), suspend = !!(req.body && req.body.suspend);
+    const target = await pool.query('SELECT username_key FROM lobbyzero_users WHERE username_key=$1', [username.toLowerCase()]);
+    if (!target.rowCount) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    if (target.rows[0].username_key === actor.username.toLowerCase()) return res.status(400).json({ error: 'Você não pode suspender sua própria conta.' });
+    if (suspend) {
+      const reason = typeof req.body.reason === 'string' ? req.body.reason.slice(0,500) : '';
+      await pool.query('INSERT INTO lobbyzero_suspensions (username_key, community, reason, suspended_until) VALUES ($1,$2,$3,NULL) ON CONFLICT (username_key, community) DO UPDATE SET reason=EXCLUDED.reason, suspended_until=NULL, created_at=NOW()', [username.toLowerCase(), community, reason]);
+      for (const [id, person] of online) if (person.community === community && person.isAccount && String(person.accountName).toLowerCase() === username.toLowerCase()) io.sockets.sockets.get(id)?.disconnect(true);
+    } else await pool.query('DELETE FROM lobbyzero_suspensions WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]);
+    res.json({ ok: true, suspended: suspend });
+  } catch (error) { console.error('Admin suspension failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar a suspensão.' }); }
+});
+app.post('/api/admin/mute-guest', async (req, res) => {
+  try {
+    const community = safeCommunity(req.body && req.body.community);
+    const actor = await adminUser(req, res, community); if (!actor) return;
+    const targetId = req.body && req.body.socketId;
+    const target = online.get(targetId);
+    if (!target || target.community !== community) return res.status(404).json({ error: 'Participante não encontrado nesta comunidade.' });
+    if (target.isAccount) return res.status(400).json({ error: 'Esta ação é somente para guests.' });
+    const mute = !!(req.body && req.body.mute);
+    if (mute) mutedGuests.add(targetId); else mutedGuests.delete(targetId);
+    io.to(targetId).emit('guest_mute_changed', { muted: mute, message: mute ? 'Você foi silenciado por um administrador.' : 'Seu silêncio foi removido.' });
+    res.json({ ok: true, muted: mute });
+  } catch (error) { console.error('Guest mute failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar o silêncio do guest.' }); }
+});
+app.post('/api/admin/messages/delete', async (req, res) => {
+  try {
+    const community = safeCommunity(req.body && req.body.community);
+    const user = await adminUser(req, res, community); if (!user) return;
+    const id = req.body && req.body.id;
+    const messages = roomHistory(community), index = messages.findIndex(message => String(message.messageId) === String(id));
+    if (index < 0) return res.status(404).json({ error: 'Mensagem não encontrada no histórico atual.' });
+    messages.splice(index, 1); io.to(community).emit('admin_message_deleted', { messageId: String(id) });
+    res.json({ ok: true });
+  } catch (error) { console.error('Admin message deletion failed:', error.message); res.status(500).json({ error: 'Não foi possível apagar a mensagem.' }); }
+});
+app.post('/api/admin/disconnect', async (req, res) => {
+  try {
+    const community = safeCommunity(req.body && req.body.community);
+    const user = await adminUser(req, res, community); if (!user) return;
+    const targetId = req.body && req.body.socketId, target = online.get(targetId);
+    if (!target || target.community !== community) return res.status(404).json({ error: 'Participante não encontrado nesta comunidade.' });
+    const targetSocket = io.sockets.sockets.get(targetId); if (targetSocket) { targetSocket.emit('admin_disconnected', { message: 'Você foi desconectado por um administrador desta comunidade.' }); targetSocket.disconnect(true); }
+    res.json({ ok: true });
+  } catch (error) { console.error('Admin disconnect failed:', error.message); res.status(500).json({ error: 'Não foi possível desconectar o participante.' }); }
+});
 app.post('/api/avatar', async (req, res) => {
   try {
     const user = await currentUser(req);
@@ -151,6 +254,9 @@ io.use(async (socket, next) => {
     let token = '';
     if (part) { try { token = decodeURIComponent(part.slice(SESSION_COOKIE.length + 1)); } catch (_) {} }
     socket.user = token ? await readToken(token) : null;
+    socket.community = safeCommunity(socket.handshake.query && socket.handshake.query.community);
+    if (socket.user) { const suspended = await pool.query('SELECT 1 FROM lobbyzero_suspensions WHERE username_key=$1 AND community=$2 AND (suspended_until IS NULL OR suspended_until > NOW())', [socket.user.username.toLowerCase(), socket.community]); if (suspended.rowCount) return next(new Error('Sua conta está suspensa nesta comunidade.')); }
+    socket.join(socket.community);
     socket.guestId = crypto.randomUUID();
     next();
   } catch (error) { console.error('Socket auth check failed:', error.message); next(new Error('Unable to connect right now.')); }
@@ -164,15 +270,17 @@ function emitOnline() {
   for (const viewer of io.sockets.sockets.values()) {
     const chosen = new Map();
     for (const [id, person] of entries) {
+      if (person.community !== (viewer.community || COMMUNITIES[0])) continue;
       const key = person.isAccount
-        ? `account:${String(person.accountName || '').toLowerCase()}`
+        ? `account:${person.community}:${String(person.accountName || '').toLowerCase()}`
         : `guest:${id}`;
       const existing = chosen.get(key);
       const viewerOwnAccount = person.isAccount && viewer.user &&
         String(viewer.user.username).toLowerCase() === String(person.accountName || '').toLowerCase();
       if (!existing || viewerOwnAccount) chosen.set(key, { id, person });
     }
-    const roster = Array.from(chosen.values()).map(({ id, person }) => ({
+    const viewerCommunity = viewer.community || COMMUNITIES[0];
+    const roster = Array.from(chosen.values()).filter(({ person }) => person.community === viewerCommunity).map(({ id, person }) => ({
       id, personagem: person.personagem, foto: person.foto,
       accountName: person.accountName || 'Guest',
       sheet: person.isAccount ? undefined : (person.sheet || {})
@@ -189,14 +297,14 @@ function isAllowedImage(data) {
 }
 io.on('connection', socket => {
   const accountName = socket.user ? socket.user.username : 'Guest';
-  socket.emit('carregar_historico', history);
+  socket.emit('carregar_historico', roomHistory(socket.community));
   socket.on('registrar_participante', data => {
     data = data || {};
     const existing = online.get(socket.id) || {};
     online.set(socket.id, {
       personagem: safeName(data.personagem) || accountName,
       foto: safePhoto(data.foto) || (socket.user && socket.user.avatarUrl) || '',
-      accountName, isAccount: !!socket.user, sheet: existing.sheet || {}
+      accountName, isAccount: !!socket.user, community: socket.community, sheet: existing.sheet || {}
     });
     emitOnline();
   });
@@ -205,7 +313,7 @@ io.on('connection', socket => {
     try {
       const targetId = data && typeof data.targetId === 'string' ? data.targetId : socket.id;
       const target = online.get(targetId);
-      if (!target) return ack({ error: 'That participant is no longer online.' });
+      if (!target || target.community !== socket.community) return ack({ error: 'That participant is no longer online in this community.' });
       if (target.isAccount && target.accountName) {
         const result = await pool.query('SELECT sheet FROM lobbyzero_character_sheets WHERE username_key = $1', [target.accountName.toLowerCase()]);
         const sheet = result.rowCount && result.rows[0].sheet ? result.rows[0].sheet : {};
@@ -233,7 +341,7 @@ io.on('connection', socket => {
       person.sheet = sheet;
       online.set(socket.id, person);
       emitOnline();
-      io.emit('character_sheet_updated', { ownerId: socket.id, sheet, persisted: !!socket.user });
+      io.to(socket.community).emit('character_sheet_updated', { ownerId: socket.id, sheet, persisted: !!socket.user });
       ack({ ok: true, persisted: !!socket.user });
     } catch (error) {
       console.error('Could not save character sheet:', error.message);
@@ -242,6 +350,7 @@ io.on('connection', socket => {
   });
   socket.on('msg_rp', (data, ack) => {
     data = data || {};
+    if (!socket.user && mutedGuests.has(socket.id)) { if (typeof ack === 'function') ack({ error: 'Você está silenciado nesta comunidade.' }); return; }
     const text = typeof data.texto === 'string' ? data.texto.slice(0, 4000) : '';
     const image = typeof data.imagem === 'string' ? data.imagem : '';
     if (!text.trim() && !image) { if (typeof ack === 'function') ack({ error: 'Message is empty.' }); return; }
@@ -260,13 +369,16 @@ io.on('connection', socket => {
       imagem: image,
       timestamp: Date.now()
     };
+    message.messageId = crypto.randomUUID();
+    message.community = socket.community;
+    const history = roomHistory(socket.community);
     history.push(message);
     if (history.length > 100) history.shift();
-    socket.broadcast.emit('enviar_msg_rp', message);
+    socket.to(socket.community).emit('enviar_msg_rp', message);
     socket.emit('enviar_msg_rp', message);
     if (typeof ack === 'function') ack({ ok: true });
   });
-  socket.on('disconnect', () => { online.delete(socket.id); imageLastSent.delete(socket.id); emitOnline(); });
+  socket.on('disconnect', () => { online.delete(socket.id); imageLastSent.delete(socket.id); mutedGuests.delete(socket.id); emitOnline(); });
 });
 const PORT = process.env.PORT || 3000;
 initDatabase().then(() => server.listen(PORT, () => console.log(`LobbyZero running on port ${PORT}`))).catch(error => {

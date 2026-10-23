@@ -770,6 +770,36 @@
     @media(max-width:390px) { #onlineCount { display:none; } .auth-card { padding:22px; } }
   </style>
 
+
+  <style id="lobbyzero-final-visual-fix">
+    /* Single brand mark: keep the uploaded logo and remove decorative sun/orb marks. */
+    .chat-header-name::before,
+    .chat-header-name::after,
+    .chat-header::before,
+    .chat-header::after { content:none !important; display:none !important; }
+    .brand-logo { filter:grayscale(1) contrast(1.05); box-shadow:0 0 12px rgba(255,255,255,.07); }
+    /* The global theme must not recolor message bubbles into pale grey. */
+    .message-row.own-message .message-text {
+      background:linear-gradient(135deg,#111214 0%,#191a1e 100%) !important;
+      color:#f5f5f7 !important;
+      border:1px solid #3b3c42 !important;
+      box-shadow:0 3px 12px rgba(0,0,0,.16);
+    }
+    .message-row:not(.own-message) .message-text { color:#f5f5f7 !important; }
+    .message-row.own-message .message-text em,
+    .message-text em { color:#d7d7dc !important; }
+    .message-row.own-message .message-text a,
+    .message-text a { color:#fff !important; }
+    /* A single logo in the header; hide the unused server rail that showed another mark. */
+    .server-rail { display:none !important; }
+    .chat-header { gap:12px; background:linear-gradient(110deg,#080809 0%,#17181b 58%,#101012 100%) !important; }
+    .top-login-button { opacity:.48 !important; background:transparent !important; border-color:transparent !important; color:#a4a4aa !important; box-shadow:none !important; }
+    .top-login-button:hover,.top-login-button:focus-visible { opacity:1 !important; background:#222226 !important; color:#f5f5f6 !important; border-color:#34343a !important; }
+    .message-composer { background:linear-gradient(135deg,#202125 0%,#151518 100%) !important; border:1px solid #777780 !important; box-shadow:0 -3px 18px rgba(0,0,0,.24),0 0 0 1px rgba(255,255,255,.035) !important; }
+    .composer-area { background:linear-gradient(180deg,#111113 0%,#080809 100%) !important; border-top:1px solid #4a4a50 !important; }
+    .send-button,.send-button:hover { background:#f2f2f4 !important; color:#080809 !important; }
+    .message-text,.message-composer,.top-login-button,.brand-logo { transition:background .22s ease,color .22s ease,border-color .22s ease,box-shadow .22s ease,opacity .22s ease; }
+  </style>
 </head>
 <body>
   <aside class="server-rail" aria-label="Servers">

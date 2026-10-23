@@ -832,6 +832,26 @@
     .chat-header .chat-header-topic { order:2; }
     .chat-header .header-divider { order:1; }
     .members-toggle-label { white-space:nowrap; }
+
+    /* Mobile online drawer: show participants over a dimmed, blurred chat. */
+    .members-backdrop { display:none; }
+    @media (max-width:760px) {
+      body.members-open .members-backdrop {
+        display:block; position:fixed; inset:0; z-index:40;
+        background:rgba(0,0,0,.48); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+      }
+      body.members-open .main-column { filter:blur(3px); pointer-events:none; }
+      body.members-open .member-sidebar {
+        display:block !important; position:fixed; z-index:41; top:0; right:0; bottom:0;
+        width:min(82vw, 310px); max-width:310px; height:100dvh; box-sizing:border-box;
+        overflow-y:auto; padding:24px 14px; background:#111214 !important;
+        border-left:1px solid #3b3c42; box-shadow:-16px 0 40px rgba(0,0,0,.42);
+        animation:membersDrawerIn .2s ease-out;
+      }
+      body.members-open .member-heading { color:#f5f5f7; }
+    }
+    @keyframes membersDrawerIn { from { transform:translateX(18px); opacity:.65; } to { transform:translateX(0); opacity:1; } }
+
     body.members-collapsed .member-sidebar { display:none !important; }
     body.members-collapsed .main-column { flex:1 1 100%; width:100%; min-width:0; }
     .image-button { display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; flex:0 0 42px; color:#f5f5f7; border:1px solid #424249; border-radius:10px; background:#111113; transition:background .2s ease,border-color .2s ease,transform .2s ease; }
@@ -909,6 +929,7 @@
     </footer>
   </main>
 
+  <div id="membersBackdrop" class="members-backdrop" aria-hidden="true"></div>
   <aside class="member-sidebar" id="memberSidebar" aria-label="Participants">
     <div class="member-heading">ONLINE <span id="memberCount">0</span></div>
     <div id="memberList"><p class="member-empty">Connecting to the lobby…</p></div>
@@ -985,13 +1006,31 @@
       const onlineCount = document.getElementById('onlineCount');
       const toggleMembers = document.getElementById('toggleMembers');
       const memberSidebar = document.getElementById('memberSidebar');
+      const membersBackdrop = document.getElementById('membersBackdrop');
       if (toggleMembers && memberSidebar) {
+        const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
+        const closeMobileMembers = () => {
+          document.body.classList.remove('members-open');
+          toggleMembers.setAttribute('aria-expanded', 'false');
+          toggleMembers.setAttribute('aria-label', 'Show online participants');
+          toggleMembers.title = 'Show online participants';
+        };
         toggleMembers.addEventListener('click', () => {
-          const collapsed = document.body.classList.toggle('members-collapsed');
-          toggleMembers.setAttribute('aria-expanded', String(!collapsed));
-          toggleMembers.setAttribute('aria-label', collapsed ? 'Show online participants' : 'Hide online participants');
-          toggleMembers.title = collapsed ? 'Show online participants' : 'Hide online participants';
+          if (isMobile()) {
+            const opened = document.body.classList.toggle('members-open');
+            toggleMembers.setAttribute('aria-expanded', String(opened));
+            toggleMembers.setAttribute('aria-label', opened ? 'Hide online participants' : 'Show online participants');
+            toggleMembers.title = opened ? 'Hide online participants' : 'Show online participants';
+          } else {
+            const collapsed = document.body.classList.toggle('members-collapsed');
+            toggleMembers.setAttribute('aria-expanded', String(!collapsed));
+            toggleMembers.setAttribute('aria-label', collapsed ? 'Show online participants' : 'Hide online participants');
+            toggleMembers.title = collapsed ? 'Show online participants' : 'Hide online participants';
+          }
         });
+        if (membersBackdrop) membersBackdrop.addEventListener('click', closeMobileMembers);
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMobileMembers(); });
+        window.addEventListener('resize', () => { if (!isMobile()) closeMobileMembers(); });
       }
       const toast = document.getElementById('toast');
       const backgroundButton = document.getElementById('backgroundButton');

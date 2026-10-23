@@ -476,6 +476,71 @@
       #mensagem { min-width: 0; }
     }
 
+
+    /* LobbyZero monochrome global identity + high-contrast composer */
+    :root {
+      --server-rail:#050505; --sidebar:#090909; --chat-bg:#0b0b0d;
+      --input-bg:#171719; --text:#f5f5f5; --muted:#a0a0a5;
+      --channel-hover:#202023; --channel-active:#29292d;
+      --accent:#f5f5f5; --green:#b7e4c7; --danger:#ff7777;
+      --chat-wallpaper:none;
+    }
+    body,.main-column,.chat-header,#chat,.member-sidebar { background-color:var(--chat-bg); color:var(--text); }
+    .chat-header { position:relative; border-bottom:1px solid #353539; box-shadow:0 3px 16px rgba(0,0,0,.35); }
+    .chat-header-name { display:flex; align-items:center; }
+    .chat-header-name::before { border-color:#fff; box-shadow:0 0 7px rgba(255,255,255,.8),0 0 16px rgba(255,255,255,.22); background:#050505; }
+    .chat-header-topic,.message-time,.category-title,.member-heading,.member-empty,.channel-note { color:#a3a3aa; }
+    .message-name,.welcome h2,.workspace-title,.user-panel-name { color:#fff; }
+    .message-row.own-message .message-text { background:#f0f0f0; color:#101010; border:1px solid #fff; }
+    .message-text em { color:#dedede; }
+    .message-row.own-message .message-text em { color:#333; }
+    .identity-row input,input { color:#f8f8f8; background:#19191d; border:1px solid #39393f; border-radius:10px; }
+    input::placeholder { color:#a4a4ad; }
+    input:focus { box-shadow:0 0 0 2px #f5f5f5; }
+    .composer-area {
+      position:relative; z-index:2; padding:12px 16px max(16px,env(safe-area-inset-bottom));
+      background:#080809; border-top:2px solid #77777f;
+      box-shadow:0 -8px 28px rgba(0,0,0,.48);
+    }
+    .identity-row input { background:#151518; border-color:#343439; }
+    .message-composer {
+      min-height:64px; gap:10px; padding:5px 8px;
+      background:#1b1b1f; border:1px solid #77777f; border-radius:18px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.07),0 5px 18px rgba(0,0,0,.28);
+    }
+    #mensagem { min-height:48px; padding:15px 12px; background:transparent; border:0; font-size:16px; }
+    .utility-button,.image-button { background:#111113; border:1px solid #55555c; color:#fff; border-radius:50%; }
+    .utility-button:hover,.image-button:hover { background:#303035; }
+    .send-button,.send-button:hover { background:#f4f4f4; color:#050505; border:1px solid #fff; box-shadow:0 2px 12px rgba(255,255,255,.12); }
+    .dice-container { background:#202024; border:1px solid #44444a; }
+    .dice-face { border-color:#f5f5f5; }
+    .member-entry,.channel { color:#c0c0c7; }
+    .member-entry:hover,.channel:hover { background:#202024; color:#fff; }
+    .channel.active { background:#29292e; color:#fff; }
+    .server-icon { background:#171719; color:#fff; }
+    .server-icon:hover,.server-icon.active { background:#f4f4f4; color:#050505; }
+    .server-icon.active::before { background:#fff; }
+    .user-avatar { background:#29292e; color:#fff; }
+    .connection-dot.connected { background:#b7e4c7; }
+    .top-login-button {
+      margin-left:auto; flex:0 0 auto; border:1px solid #f0f0f0; border-radius:999px;
+      padding:9px 17px; background:#f3f3f3; color:#080808; font-weight:700;
+      transition:background .15s,transform .15s;
+    }
+    .top-login-button:hover { background:#d8d8dc; transform:translateY(-1px); }
+    .auth-card { background:#101012!important; color:#f5f5f5!important; border:1px solid #56565d!important; box-shadow:0 20px 70px #000!important; }
+    .auth-card label { color:#eee!important; }
+    .auth-card input { background:#1c1c20!important; border:1px solid #44444b!important; }
+    .auth-brand .auth-orb { border-color:#fff!important; box-shadow:0 0 14px rgba(255,255,255,.5)!important; }
+    .auth-actions .primary { background:#f3f3f3!important; color:#050505!important; }
+    @media(max-width:680px) {
+      .chat-header { padding:0 12px; }
+      .top-login-button { padding:7px 12px; font-size:12px; }
+      .composer-area { padding:9px 10px max(12px,env(safe-area-inset-bottom)); }
+      .message-composer { min-height:60px; }
+      #mensagem { font-size:16px; }
+    }
+
   </style>
 
   <style id="lobbyzero-final-overrides">
@@ -649,7 +714,7 @@
   <main class="main-column">
     <header class="chat-header">
       <span class="chat-header-hash">#</span>
-      <span class="chat-header-name">Lobby Zero</span>
+      <span class="chat-header-name">Lobby Zero</span><button class="top-login-button" id="topLoginButton" type="button">Log in</button>
       <span class="header-divider"></span>
       <span class="chat-header-topic">A shared place to write your next scene.</span>
       <span id="onlineCount" class="online-count">0 online</span><span id="status">Connecting…</span>
@@ -709,6 +774,7 @@
       function hideAuth() { authOverlay.hidden = true; authOverlay.style.display = 'none'; }
       function showAuth() { authOverlay.hidden = false; authOverlay.style.display = 'flex'; authError.textContent = ''; }
       document.getElementById('guestAction').addEventListener('click', hideAuth);
+      document.getElementById('topLoginButton').addEventListener('click', () => { showAuth(); authUsername.focus(); });
       document.getElementById('logoutButton').addEventListener('click', async () => {
         if (!signedIn) { showAuth(); return; }
         try { await fetch('/api/logout', {method:'POST', credentials:'same-origin'}); } finally { location.reload(); }
@@ -734,11 +800,12 @@
         if (r.ok) {
           const user = await r.json(); signedIn = true; hideAuth();
           document.getElementById('logoutButton').textContent = 'Log out';
+          document.getElementById('topLoginButton').textContent = user.username;
           if (!inputNome.value.trim()) inputNome.value = user.username;
         } else {
-          signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; hideAuth();
+          signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; hideAuth();
         }
-      }).catch(() => { signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; hideAuth(); showToast('Account service unavailable; you can still chat as a guest.'); });
+      }).catch(() => { signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; hideAuth(); showToast('Account service unavailable; you can still chat as a guest.'); });
 
       const statusEl = document.getElementById('status');
       const chat = document.getElementById('chat');

@@ -1365,7 +1365,7 @@
               id: person.id,
               name: typeof person.personagem === 'string' && person.personagem.trim() ? person.personagem.trim() : 'Anonymous Wanderer',
               photo: validImageUrl(person.foto) ? person.foto : '',
-              accountName: typeof person.accountName === 'string' ? person.accountName : '',
+              accountName: typeof person.accountName === 'string' ? person.accountName : 'Guest',
               sheet: person.sheet && typeof person.sheet === 'object' ? person.sheet : {},
               online: true
             });
@@ -1410,7 +1410,7 @@
           name.textContent = person.name;
           const state = document.createElement('span');
           state.className = 'member-status';
-          state.textContent = 'Online';
+          state.textContent = person.accountName && person.accountName !== 'Guest' ? `Account · ${person.accountName}` : 'Guest · Online';
           info.append(name, state);
           const dot = document.createElement('span');
           dot.className = 'member-online-dot';
@@ -1554,6 +1554,15 @@
       });
 
       socket.on('lista_participantes', list => renderParticipants(list));
+      socket.on('character_sheet_updated', update => {
+        if (!update || typeof update.ownerId !== 'string') return;
+        const person = participants.get(update.ownerId);
+        if (person) person.sheet = update.sheet && typeof update.sheet === 'object' ? update.sheet : {};
+        renderParticipants();
+        if (activeSheetPerson && activeSheetPerson.id === update.ownerId && update.ownerId !== socket.id) {
+          fillSheetForm(update.sheet || {});
+        }
+      });
       socket.on('participante_saiu', id => {
         if (id) participants.delete(id);
         renderParticipants();

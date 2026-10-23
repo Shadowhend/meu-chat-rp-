@@ -156,7 +156,13 @@ io.use(async (socket, next) => {
   } catch (error) { console.error('Socket auth check failed:', error.message); next(new Error('Unable to connect right now.')); }
 });
 function emitOnline() {
-  io.emit('lista_participantes', Array.from(online.entries()).map(([id, person]) => ({ id, personagem: person.personagem, foto: person.foto, accountName: person.accountName || '' })));
+  // Guest sheets live only in memory, so include them in the live roster.
+  // Account sheets are fetched from PostgreSQL when someone opens the profile.
+  io.emit('lista_participantes', Array.from(online.entries()).map(([id, person]) => ({
+    id, personagem: person.personagem, foto: person.foto,
+    accountName: person.accountName || 'Guest',
+    sheet: person.isAccount ? undefined : (person.sheet || {})
+  })));
 }
 function safePhoto(value) {
   if (typeof value !== 'string' || value.length > 2000) return '';
@@ -171,7 +177,11 @@ io.on('connection', socket => {
   socket.on('registrar_participante', data => {
     data = data || {};
     const existing = online.get(socket.id) || {};
-    online.set(socket.id, { personagem: safeName(data.personagem) || accountName, foto: safePhoto(data.foto) || (socket.user && socket.user.avatarUrl) || '', accountName, sheet: existing.sheet || {} });
+    online.set(socket.id, {
+      personagem: safeName(data.personagem) || accountName,
+      foto: safePhoto(data.foto) || (socket.user && socket.user.avatarUrl) || '',
+      accountName, isAccount: !!socket.user, sheet: existing.sheet || {}
+    });
     emitOnline();
   });
   socket.on('get_character_sheet', async (data, ack) => {
@@ -180,7 +190,7 @@ io.on('connection', socket => {
       const targetId = data && typeof data.targetId === 'string' ? data.targetId : socket.id;
       const target = online.get(targetId);
       if (!target) return ack({ error: 'That participant is no longer online.' });
-      if (target.accountName) {
+      if (target.isAccount && target.accountName) {
         const result = await pool.query('SELECT sheet FROM lobbyzero_character_sheets WHERE username_key = $1', [target.accountName.toLowerCase()]);
         const sheet = result.rowCount && result.rows[0].sheet ? result.rows[0].sheet : {};
         if (targetId === socket.id) target.sheet = sheet;
@@ -207,6 +217,7 @@ io.on('connection', socket => {
       person.sheet = sheet;
       online.set(socket.id, person);
       emitOnline();
+      io.emit('character_sheet_updated', { ownerId: socket.id, sheet, persisted: !!socket.user });
       ack({ ok: true, persisted: !!socket.user });
     } catch (error) {
       console.error('Could not save character sheet:', error.message);

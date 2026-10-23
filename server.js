@@ -50,8 +50,6 @@ async function initDatabase() {
   await pool.query(`ALTER TABLE lobbyzero_users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(2000) NOT NULL DEFAULT ''`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_community_admins (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_suspensions (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', suspended_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_community_admins (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_suspensions (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', suspended_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_character_sheets (username_key VARCHAR(32) PRIMARY KEY REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, sheet JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   const bootstrap = safeName(process.env.ADMIN_BOOTSTRAP_USERNAME || '');
   if (bootstrap) {
@@ -219,6 +217,22 @@ app.post('/api/admin/mute-guest', async (req, res) => {
     io.to(targetId).emit('guest_mute_changed', { muted: mute, message: mute ? 'Você foi silenciado por um administrador.' : 'Seu silêncio foi removido.' });
     res.json({ ok: true, muted: mute });
   } catch (error) { console.error('Guest mute failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar o silêncio do guest.' }); }
+});
+app.post('/api/admin/history/clear', async (req, res) => {
+  try {
+    const community = safeCommunity(req.body && req.body.community);
+    const user = await adminUser(req, res, community); if (!user) return;
+    const allCommunities = !!(req.body && req.body.allCommunities);
+    if (allCommunities && !isSuperAdmin(user)) return res.status(403).json({ error: 'Somente o ADM supremo pode limpar todas as comunidades.' });
+    const targets = allCommunities ? COMMUNITIES : [community];
+    const counts = {};
+    for (const target of targets) {
+      counts[target] = roomHistory(target).length;
+      histories.set(target, []);
+      io.to(target).emit('admin_history_cleared', { community: target });
+    }
+    res.json({ ok: true, cleared: counts, allCommunities });
+  } catch (error) { console.error('Admin history clear failed:', error.message); res.status(500).json({ error: 'Não foi possível limpar o histórico.' }); }
 });
 app.post('/api/admin/messages/delete', async (req, res) => {
   try {

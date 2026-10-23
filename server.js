@@ -144,9 +144,12 @@ app.post('/api/login', async (req, res) => {
     res.json({ username: user.username, avatarUrl });
   } catch (error) { console.error('Login failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
 });
+const bootstrapAdminKey = () => safeName(process.env.ADMIN_BOOTSTRAP_USERNAME || '').toLowerCase();
+function isSuperAdmin(user) { return !!user && !!bootstrapAdminKey() && user.username.toLowerCase() === bootstrapAdminKey(); }
 async function adminUser(req, res, community) {
   const user = await currentUser(req);
   if (!user) { res.status(401).json({ error: 'Faça login para acessar a administração.' }); return null; }
+  if (isSuperAdmin(user)) return user;
   const allowed = await pool.query('SELECT 1 FROM lobbyzero_community_admins WHERE username_key = $1 AND community = $2', [user.username.toLowerCase(), safeCommunity(community)]);
   if (!allowed.rowCount) { res.status(403).json({ error: 'Você não é administrador desta comunidade.' }); return null; }
   return user;
@@ -156,7 +159,8 @@ app.get('/api/admin/communities', async (req, res) => {
     const user = await currentUser(req);
     if (!user) return res.status(401).json({ error: 'Faça login para acessar a administração.' });
     const result = await pool.query('SELECT community FROM lobbyzero_community_admins WHERE username_key = $1 ORDER BY community', [user.username.toLowerCase()]);
-    res.json({ communities: result.rows.map(row => row.community), allCommunities: COMMUNITIES });
+    const superAdmin = isSuperAdmin(user);
+    res.json({ communities: superAdmin ? COMMUNITIES : result.rows.map(row => row.community), allCommunities: COMMUNITIES, superAdmin });
   } catch (error) { console.error('Admin communities failed:', error.message); res.status(500).json({ error: 'Não foi possível carregar as permissões.' }); }
 });
 app.get('/api/admin/overview', async (req, res) => {
@@ -165,8 +169,9 @@ app.get('/api/admin/overview', async (req, res) => {
     const user = await adminUser(req, res, community); if (!user) return;
     const users = await pool.query(`SELECT u.username, u.created_at, EXISTS(SELECT 1 FROM lobbyzero_suspensions s WHERE s.username_key=u.username_key AND s.community=$1 AND (s.suspended_until IS NULL OR s.suspended_until > NOW())) AS suspended FROM lobbyzero_users u ORDER BY u.created_at DESC LIMIT 300`, [community]);
     const totalUsers = await pool.query('SELECT COUNT(*)::int AS count FROM lobbyzero_users');
+    const admins = await pool.query('SELECT u.username, a.created_at FROM lobbyzero_community_admins a JOIN lobbyzero_users u ON u.username_key=a.username_key WHERE a.community=$1 ORDER BY u.username', [community]);
     const onlineUsers = Array.from(online.entries()).filter(([, person]) => person.community === community).map(([id, person]) => ({ id, username: person.accountName || 'Guest', character: person.personagem || '', isAccount: !!person.isAccount, muted: mutedGuests.has(id) }));
-    res.json({ community, users: users.rows, online: onlineUsers, onlineCount: onlineUsers.length, registeredCount: totalUsers.rows[0].count, messagesInMemory: roomHistory(community).length });
+    res.json({ community, users: users.rows, admins: admins.rows, superAdmin: isSuperAdmin(user), online: onlineUsers, onlineCount: onlineUsers.length, registeredCount: totalUsers.rows[0].count, messagesInMemory: roomHistory(community).length });
   } catch (error) { console.error('Admin overview failed:', error.message); res.status(500).json({ error: 'Não foi possível carregar o painel.' }); }
 });
 app.post('/api/admin/roles', async (req, res) => {
@@ -177,7 +182,11 @@ app.post('/api/admin/roles', async (req, res) => {
     const target = await pool.query('SELECT username_key FROM lobbyzero_users WHERE username_key=$1', [username.toLowerCase()]);
     if (!target.rowCount) return res.status(404).json({ error: 'Cadastre a conta antes de torná-la administradora.' });
     if (grant) await pool.query('INSERT INTO lobbyzero_community_admins (username_key, community) VALUES ($1,$2) ON CONFLICT DO NOTHING', [username.toLowerCase(), community]);
-    else { if (username.toLowerCase() === actor.username.toLowerCase()) return res.status(400).json({ error: 'Você não pode remover sua própria permissão por aqui.' }); await pool.query('DELETE FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]); }
+    else {
+      if (username.toLowerCase() === bootstrapAdminKey()) return res.status(400).json({ error: 'A conta ADM supremo é definida por ADMIN_BOOTSTRAP_USERNAME no Render. Para retirar esse privilégio, altere ou remova essa variável no Render.' });
+      if (username.toLowerCase() === actor.username.toLowerCase() && !isSuperAdmin(actor)) return res.status(400).json({ error: 'Um ADM de comunidade não pode remover a própria permissão. Peça a outro ADM ou ao ADM supremo.' });
+      await pool.query('DELETE FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]);
+    }
     res.json({ ok: true, admin: grant, community });
   } catch (error) { console.error('Admin role update failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar a permissão administrativa.' }); }
 });
@@ -216,10 +225,14 @@ app.post('/api/admin/messages/delete', async (req, res) => {
     const community = safeCommunity(req.body && req.body.community);
     const user = await adminUser(req, res, community); if (!user) return;
     const id = req.body && req.body.id;
-    const messages = roomHistory(community), index = messages.findIndex(message => String(message.messageId) === String(id));
-    if (index < 0) return res.status(404).json({ error: 'Mensagem não encontrada no histórico atual.' });
-    messages.splice(index, 1); io.to(community).emit('admin_message_deleted', { messageId: String(id) });
-    res.json({ ok: true });
+    if (typeof id !== 'string' || !id.trim()) return res.status(400).json({ error: 'ID da mensagem inválido.' });
+    const messages = roomHistory(community);
+    const index = messages.findIndex(message => String(message.messageId) === id);
+    // Always broadcast the removal to this community. A message can still be visible
+    // in a connected client even if its in-memory history was reset by a server restart.
+    if (index >= 0) messages.splice(index, 1);
+    io.to(community).emit('admin_message_deleted', { messageId: id });
+    res.json({ ok: true, removedFromHistory: index >= 0 });
   } catch (error) { console.error('Admin message deletion failed:', error.message); res.status(500).json({ error: 'Não foi possível apagar a mensagem.' }); }
 });
 app.post('/api/admin/disconnect', async (req, res) => {

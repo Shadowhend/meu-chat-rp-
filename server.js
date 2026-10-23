@@ -1,40 +1,56 @@
 'use strict';
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io');
 const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is required. Add the PostgreSQL Internal Database URL in Render Environment.');
+  process.exit(1);
+}
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  console.error('SESSION_SECRET is required in production. Add a long random secret in Render Environment.');
+  process.exit(1);
+}
+const sessionsSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Render's internal database connection normally does not require SSL.
+  // Set PGSSL=true only if your database provider requires TLS.
+  ...(process.env.PGSSL === 'true' ? { ssl: { rejectUnauthorized: false } } : {})
+});
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { maxHttpBufferSize: 4 * 1024 * 1024 });
+const io = new Server(server, { maxHttpBufferSize: 4 * 1024 * 1024 });
 app.use(express.json({ limit: '4mb' }));
+app.use(express.static(__dirname, { index: false }));
 
-// On Render, attach a persistent disk mounted at /var/data to retain accounts across deploys.
-const dataDir = process.env.LOBBYZERO_DATA_DIR || (fs.existsSync('/var/data') ? '/var/data' : path.join(__dirname, 'data'));
-fs.mkdirSync(dataDir, { recursive: true });
-const usersFile = path.join(dataDir, 'users.json');
-let users = {};
-try { users = JSON.parse(fs.readFileSync(usersFile, 'utf8')); } catch (_) { users = {}; }
-function saveUsers() { fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), { mode: 0o600 }); }
-const secretFile = path.join(dataDir, 'session-secret.txt');
-let storedSecret = '';
-try { storedSecret = fs.readFileSync(secretFile, 'utf8').trim(); } catch (_) {}
-if (!process.env.SESSION_SECRET && !storedSecret) { storedSecret = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(secretFile, storedSecret, { mode: 0o600 }); }
-const sessionsSecret = process.env.SESSION_SECRET || storedSecret;
 const SESSION_COOKIE = 'lobbyzero_session';
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const history = [];
 const online = new Map();
 const imageLastSent = new Map();
 
+async function initDatabase() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_users (
+    username_key VARCHAR(32) PRIMARY KEY,
+    username VARCHAR(32) NOT NULL,
+    salt VARCHAR(64) NOT NULL,
+    password_hash VARCHAR(128) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  console.log('PostgreSQL ready.');
+}
 function safeName(value) { return typeof value === 'string' ? value.trim().slice(0, 32) : ''; }
 function cookieValue(req, name) {
   const header = req.headers.cookie || '';
   for (const part of header.split(';')) {
     const i = part.indexOf('=');
-    if (i >= 0 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+    if (i >= 0 && part.slice(0, i).trim() === name) {
+      try { return decodeURIComponent(part.slice(i + 1).trim()); } catch (_) { return ''; }
+    }
   }
   return '';
 }
@@ -43,71 +59,85 @@ function createToken(user) {
   const payload = Buffer.from(JSON.stringify({ username: user.username, exp: Date.now() + SESSION_MS })).toString('base64url');
   return payload + '.' + sign(payload);
 }
-function readToken(token) {
+async function readToken(token) {
   if (!token || !token.includes('.')) return null;
-  const [payload, signature] = token.split('.');
+  const dot = token.lastIndexOf('.');
+  const payload = token.slice(0, dot), signature = token.slice(dot + 1);
   const expected = sign(payload);
-  const a = Buffer.from(signature || ''); const b = Buffer.from(expected);
+  const a = Buffer.from(signature), b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (!data.username || data.exp < Date.now() || !users[data.username.toLowerCase()]) return null;
-    return users[data.username.toLowerCase()];
+    if (!data.username || !Number.isFinite(data.exp) || data.exp < Date.now()) return null;
+    const result = await pool.query('SELECT username FROM lobbyzero_users WHERE username_key = $1', [data.username.toLowerCase()]);
+    return result.rowCount ? { username: result.rows[0].username } : null;
   } catch (_) { return null; }
 }
-function currentUser(req) { return readToken(cookieValue(req, SESSION_COOKIE)); }
+async function currentUser(req) { return readToken(cookieValue(req, SESSION_COOKIE)); }
 function setSession(res, user) {
-  const token = createToken(user);
-  res.cookie(SESSION_COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: SESSION_MS, path: '/' });
+  res.cookie(SESSION_COOKIE, createToken(user), {
+    httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: SESSION_MS, path: '/'
+  });
 }
 function clearSession(res) { res.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' }); }
 function hashPassword(password, salt) {
-  return new Promise((resolve, reject) => {
-    crypto.scrypt(password, salt, 64, (err, key) => {
-      if (err) reject(err); else resolve(key.toString('hex'));
-    });
-  });
+  return new Promise((resolve, reject) => crypto.scrypt(password, salt, 64, (err, key) => err ? reject(err) : resolve(key.toString('hex'))));
 }
-
-app.get('/api/me', (req, res) => {
-  const user = currentUser(req);
-  if (!user) return res.status(401).json({ error: 'Not signed in' });
-  res.json({ username: user.username });
+app.get('/api/me', async (req, res) => {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ error: 'Not signed in' });
+    res.json({ username: user.username });
+  } catch (error) { console.error('Session lookup failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
 });
 app.post('/api/register', async (req, res) => {
-  const username = safeName(req.body && req.body.username);
-  const password = req.body && req.body.password;
-  if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) return res.status(400).json({ error: 'Username must be 3–32 characters (letters, numbers, _ or -).' });
-  if (typeof password !== 'string' || password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
-  const key = username.toLowerCase();
-  if (users[key]) return res.status(409).json({ error: 'That username is already taken.' });
-  const salt = crypto.randomBytes(16).toString('hex');
-  const passwordHash = await hashPassword(password, salt);
-  users[key] = { username, salt, passwordHash };
-  saveUsers(); setSession(res, users[key]);
-  res.json({ username });
+  try {
+    const username = safeName(req.body && req.body.username);
+    const password = req.body && req.body.password;
+    if (!/^[A-Za-z0-9_-]{3,32}$/.test(username)) return res.status(400).json({ error: 'Username must be 3–32 characters (letters, numbers, _ or -).' });
+    if (typeof password !== 'string' || password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Password must be 8–200 characters.' });
+    const key = username.toLowerCase();
+    const salt = crypto.randomBytes(16).toString('hex');
+    const passwordHash = await hashPassword(password, salt);
+    try {
+      await pool.query('INSERT INTO lobbyzero_users (username_key, username, salt, password_hash) VALUES ($1, $2, $3, $4)', [key, username, salt, passwordHash]);
+    } catch (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'That username is already taken.' });
+      throw error;
+    }
+    setSession(res, { username });
+    res.json({ username });
+  } catch (error) { console.error('Registration failed:', error.message); res.status(500).json({ error: 'Could not create account. Please try again.' }); }
 });
 app.post('/api/login', async (req, res) => {
-  const username = safeName(req.body && req.body.username);
-  const password = req.body && req.body.password;
-  const user = users[username.toLowerCase()];
-  if (!user || typeof password !== 'string') return res.status(401).json({ error: 'Incorrect username or password.' });
-  const candidate = await hashPassword(password, user.salt);
-  const a = Buffer.from(candidate, 'hex'); const b = Buffer.from(user.passwordHash, 'hex');
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(401).json({ error: 'Incorrect username or password.' });
-  setSession(res, user); res.json({ username: user.username });
+  try {
+    const username = safeName(req.body && req.body.username);
+    const password = req.body && req.body.password;
+    if (typeof password !== 'string') return res.status(401).json({ error: 'Incorrect username or password.' });
+    const result = await pool.query('SELECT username, salt, password_hash FROM lobbyzero_users WHERE username_key = $1', [username.toLowerCase()]);
+    if (!result.rowCount) return res.status(401).json({ error: 'Incorrect username or password.' });
+    const user = result.rows[0];
+    const candidate = Buffer.from(await hashPassword(password, user.salt), 'hex');
+    const stored = Buffer.from(user.password_hash, 'hex');
+    if (candidate.length !== stored.length || !crypto.timingSafeEqual(candidate, stored)) return res.status(401).json({ error: 'Incorrect username or password.' });
+    setSession(res, { username: user.username });
+    res.json({ username: user.username });
+  } catch (error) { console.error('Login failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
 });
 app.post('/api/logout', (req, res) => { clearSession(res); res.json({ ok: true }); });
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-io.use((socket, next) => {
-  const header = socket.handshake.headers.cookie || '';
-  const part = header.split(';').map(x => x.trim()).find(x => x.startsWith(SESSION_COOKIE + '='));
-  const token = part ? decodeURIComponent(part.slice(SESSION_COOKIE.length + 1)) : '';
-  const user = readToken(token);
-  if (!user) return next(new Error('Please sign in to use Lobby Zero.'));
-  socket.user = user;
-  next();
+// Authentication is optional: visitors may connect without an account.
+io.use(async (socket, next) => {
+  try {
+    const header = socket.handshake.headers.cookie || '';
+    const part = header.split(';').map(x => x.trim()).find(x => x.startsWith(SESSION_COOKIE + '='));
+    let token = '';
+    if (part) { try { token = decodeURIComponent(part.slice(SESSION_COOKIE.length + 1)); } catch (_) {} }
+    socket.user = token ? await readToken(token) : null;
+    socket.guestId = crypto.randomUUID();
+    next();
+  } catch (error) { console.error('Socket auth check failed:', error.message); next(new Error('Unable to connect right now.')); }
 });
 function emitOnline() {
   io.emit('lista_participantes', Array.from(online.entries()).map(([id, person]) => ({ id, personagem: person.personagem, foto: person.foto })));
@@ -120,7 +150,7 @@ function isAllowedImage(data) {
   return typeof data === 'string' && data.length <= 2_800_000 && /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(data);
 }
 io.on('connection', socket => {
-  const accountName = socket.user.username;
+  const accountName = socket.user ? socket.user.username : 'Guest';
   socket.emit('carregar_historico', history);
   socket.on('registrar_participante', data => {
     data = data || {};
@@ -134,13 +164,12 @@ io.on('connection', socket => {
     if (!text.trim() && !image) { if (typeof ack === 'function') ack({ error: 'Message is empty.' }); return; }
     if (image) {
       if (!isAllowedImage(image)) { if (typeof ack === 'function') ack({ error: 'Image must be PNG, JPEG, GIF or WebP and smaller than 2 MB.' }); return; }
-      const now = Date.now(); const previous = imageLastSent.get(socket.id) || 0;
+      const now = Date.now(), previous = imageLastSent.get(socket.id) || 0;
       if (now - previous < 5000) { if (typeof ack === 'function') ack({ error: `Wait ${Math.ceil((5000 - (now - previous)) / 1000)} seconds before sending another image.` }); return; }
       imageLastSent.set(socket.id, now);
     }
-    const current = online.get(socket.id) || { personnage: accountName, foto: '' };
+    const current = online.get(socket.id) || { personagem: accountName, foto: '' };
     const message = { id: socket.id, personagem: safeName(data.personagem) || current.personagem || accountName, texto: text, foto: safePhoto(data.foto) || current.foto || '', imagem, timestamp: Date.now() };
-    if (image && !text) message.texto = '';
     history.push(message); if (history.length > 100) history.shift();
     socket.broadcast.emit('enviar_msg_rp', message);
     socket.emit('enviar_msg_rp', message);
@@ -149,4 +178,7 @@ io.on('connection', socket => {
   socket.on('disconnect', () => { online.delete(socket.id); imageLastSent.delete(socket.id); emitOnline(); });
 });
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`LobbyZero running on port ${PORT}`));
+initDatabase().then(() => server.listen(PORT, () => console.log(`LobbyZero running on port ${PORT}`))).catch(error => {
+  console.error('Could not initialize PostgreSQL:', error.message);
+  process.exit(1);
+});

@@ -43,6 +43,7 @@ async function initDatabase() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query(`ALTER TABLE lobbyzero_users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(2000) NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_character_sheets (username_key VARCHAR(32) PRIMARY KEY REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, sheet JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   console.log('PostgreSQL ready.');
 }
 function safeName(value) { return typeof value === 'string' ? value.trim().slice(0, 32) : ''; }
@@ -89,7 +90,7 @@ app.get('/api/me', async (req, res) => {
   try {
     const user = await currentUser(req);
     if (!user) return res.status(401).json({ error: 'Not signed in' });
-    res.json({ username: user.username });
+    res.json({ username: user.username, avatarUrl: user.avatarUrl || '' });
   } catch (error) { console.error('Session lookup failed:', error.message); res.status(500).json({ error: 'Account service temporarily unavailable.' }); }
 });
 app.post('/api/register', async (req, res) => {
@@ -151,7 +152,7 @@ io.use(async (socket, next) => {
   } catch (error) { console.error('Socket auth check failed:', error.message); next(new Error('Unable to connect right now.')); }
 });
 function emitOnline() {
-  io.emit('lista_participantes', Array.from(online.entries()).map(([id, person]) => ({ id, personagem: person.personagem, foto: person.foto })));
+  io.emit('lista_participantes', Array.from(online.entries()).map(([id, person]) => ({ id, personagem: person.personagem, foto: person.foto, accountName: person.accountName || '' })));
 }
 function safePhoto(value) {
   if (typeof value !== 'string' || value.length > 2000) return '';
@@ -165,8 +166,48 @@ io.on('connection', socket => {
   socket.emit('carregar_historico', history);
   socket.on('registrar_participante', data => {
     data = data || {};
-    online.set(socket.id, { personagem: safeName(data.personagem) || accountName, foto: safePhoto(data.foto) || (socket.user && socket.user.avatarUrl) || '', accountName });
+    const existing = online.get(socket.id) || {};
+    online.set(socket.id, { personagem: safeName(data.personagem) || accountName, foto: safePhoto(data.foto) || (socket.user && socket.user.avatarUrl) || '', accountName, sheet: existing.sheet || {} });
     emitOnline();
+  });
+  socket.on('get_character_sheet', async (data, ack) => {
+    if (typeof ack !== 'function') return;
+    try {
+      const targetId = data && typeof data.targetId === 'string' ? data.targetId : socket.id;
+      const target = online.get(targetId);
+      if (!target) return ack({ error: 'That participant is no longer online.' });
+      if (target.accountName) {
+        const result = await pool.query('SELECT sheet FROM lobbyzero_character_sheets WHERE username_key = $1', [target.accountName.toLowerCase()]);
+        const sheet = result.rowCount && result.rows[0].sheet ? result.rows[0].sheet : {};
+        if (targetId === socket.id) target.sheet = sheet;
+        return ack({ sheet, owner: target.accountName });
+      }
+      return ack({ sheet: target.sheet || {}, owner: '' });
+    } catch (error) {
+      console.error('Could not load character sheet:', error.message);
+      ack({ error: 'Could not load this character sheet.' });
+    }
+  });
+  socket.on('save_character_sheet', async (data, ack) => {
+    if (typeof ack !== 'function') return;
+    try {
+      const person = online.get(socket.id);
+      if (!person) return ack({ error: 'Register your presence before saving a sheet.' });
+      const input = data && data.sheet && typeof data.sheet === 'object' ? data.sheet : {};
+      const allowed = ['characterName','age','species','role','appearance','personality','backstory','abilities','extra'];
+      const sheet = {};
+      for (const key of allowed) sheet[key] = typeof input[key] === 'string' ? input[key].slice(0, key === 'backstory' ? 5000 : key === 'abilities' || key === 'extra' ? 3000 : key === 'appearance' || key === 'personality' ? 2000 : 120) : '';
+      if (socket.user) {
+        await pool.query(`INSERT INTO lobbyzero_character_sheets (username_key, sheet, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (username_key) DO UPDATE SET sheet = EXCLUDED.sheet, updated_at = NOW()`, [socket.user.username.toLowerCase(), JSON.stringify(sheet)]);
+      }
+      person.sheet = sheet;
+      online.set(socket.id, person);
+      emitOnline();
+      ack({ ok: true, persisted: !!socket.user });
+    } catch (error) {
+      console.error('Could not save character sheet:', error.message);
+      ack({ error: 'Could not save this character sheet.' });
+    }
   });
   socket.on('msg_rp', (data, ack) => {
     data = data || {};

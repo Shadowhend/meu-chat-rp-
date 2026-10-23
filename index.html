@@ -626,6 +626,26 @@
       #mensagem { font-size:16px; }
     }
 
+
+    .sheet-overlay { position:fixed; inset:0; z-index:1200; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.72); backdrop-filter:blur(8px); }
+    .sheet-overlay.open { display:flex; }
+    .sheet-card { width:min(720px,100%); max-height:min(88vh,900px); overflow:auto; background:#151619; color:#f3f3f5; border:1px solid #393a40; border-radius:16px; box-shadow:0 22px 80px #0009; padding:22px; }
+    .sheet-top { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+    .sheet-top h2 { margin:0; font-size:21px; flex:1; }
+    .sheet-close { border:1px solid #3b3c43; background:#222329; color:#eee; border-radius:9px; padding:8px 12px; cursor:pointer; }
+    .sheet-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .sheet-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .sheet-field.full { grid-column:1/-1; }
+    .sheet-field label { color:#b9bac2; font-size:12px; font-weight:650; }
+    .sheet-field input,.sheet-field textarea { width:100%; min-width:0; box-sizing:border-box; color:#f5f5f7; background:#202126; border:1px solid #3b3c43; border-radius:9px; padding:10px 12px; font:inherit; }
+    .sheet-field textarea { min-height:86px; resize:vertical; }
+    .sheet-read { white-space:pre-wrap; overflow-wrap:anywhere; color:#e5e5e8; background:#202126; border:1px solid #303138; border-radius:9px; padding:11px 12px; min-height:20px; }
+    .sheet-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:16px; }
+    .sheet-save { border:0; border-radius:9px; background:#f0f0f2; color:#111; font-weight:750; padding:10px 16px; cursor:pointer; }
+    .sheet-save:disabled { opacity:.55; cursor:wait; }
+    .member-entry { cursor:pointer; }
+    .member-entry:focus-visible { outline:2px solid #d6d6dc; outline-offset:2px; }
+    @media(max-width:560px) { .sheet-overlay { padding:10px; align-items:flex-end; } .sheet-card { max-height:90dvh; padding:17px; border-radius:16px 16px 10px 10px; } .sheet-grid { grid-template-columns:1fr; } .sheet-field.full { grid-column:auto; } }
   </style>
 
   <style id="lobbyzero-final-overrides">
@@ -949,6 +969,28 @@
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
 
+
+  <div class="sheet-overlay" id="sheetOverlay" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <section class="sheet-card">
+      <div class="sheet-top"><h2 id="sheetTitle">Character Sheet</h2><button type="button" class="sheet-close" id="sheetClose">Close</button></div>
+      <p id="sheetHint" style="color:#aeb0b8;font-size:13px;margin:-8px 0 16px">Your character details</p>
+      <form id="sheetForm">
+        <div class="sheet-grid" id="sheetFields">
+          <div class="sheet-field"><label for="sheetCharacterName">Character name</label><input id="sheetCharacterName" name="characterName" maxlength="80" placeholder="Character name"></div>
+          <div class="sheet-field"><label for="sheetAge">Age</label><input id="sheetAge" name="age" maxlength="40" placeholder="Age"></div>
+          <div class="sheet-field"><label for="sheetSpecies">Species / race</label><input id="sheetSpecies" name="species" maxlength="100" placeholder="Human, elf, etc."></div>
+          <div class="sheet-field"><label for="sheetRole">Role / occupation</label><input id="sheetRole" name="role" maxlength="120" placeholder="Knight, student, mercenary..."></div>
+          <div class="sheet-field full"><label for="sheetAppearance">Appearance</label><textarea id="sheetAppearance" name="appearance" maxlength="2000" placeholder="Describe the character's appearance"></textarea></div>
+          <div class="sheet-field full"><label for="sheetPersonality">Personality</label><textarea id="sheetPersonality" name="personality" maxlength="2000" placeholder="Personality, habits, mannerisms"></textarea></div>
+          <div class="sheet-field full"><label for="sheetBackstory">Backstory</label><textarea id="sheetBackstory" name="backstory" maxlength="5000" placeholder="Character history"></textarea></div>
+          <div class="sheet-field full"><label for="sheetAbilities">Abilities / skills</label><textarea id="sheetAbilities" name="abilities" maxlength="3000" placeholder="Powers, skills, equipment"></textarea></div>
+          <div class="sheet-field full"><label for="sheetExtra">Extra details</label><textarea id="sheetExtra" name="extra" maxlength="3000" placeholder="Anything else people should know"></textarea></div>
+        </div>
+        <div class="sheet-actions"><button type="button" class="sheet-close" id="sheetCancel">Cancel</button><button type="submit" class="sheet-save" id="sheetSave">Save character sheet</button></div>
+      </form>
+    </section>
+  </div>
+
   <script>
     (() => {
       const authOverlay = document.getElementById('authOverlay');
@@ -1112,6 +1154,70 @@
 
       const mutedUsers = new Set();
       const participants = new Map();
+      const sheetOverlay = document.getElementById('sheetOverlay');
+      const sheetForm = document.getElementById('sheetForm');
+      const sheetTitle = document.getElementById('sheetTitle');
+      const sheetHint = document.getElementById('sheetHint');
+      const sheetSave = document.getElementById('sheetSave');
+      const sheetFields = ['characterName','age','species','role','appearance','personality','backstory','abilities','extra'];
+      let activeSheetPerson = null;
+      let editingOwnSheet = false;
+      const sheetInputs = Object.fromEntries(sheetFields.map(key => [key, document.getElementById('sheet' + key[0].toUpperCase() + key.slice(1))]));
+      function readSheetForm() { const value = {}; sheetFields.forEach(key => value[key] = (sheetInputs[key].value || '').trim()); return value; }
+      function fillSheetForm(sheet) { sheet = sheet && typeof sheet === 'object' ? sheet : {}; sheetFields.forEach(key => sheetInputs[key].value = typeof sheet[key] === 'string' ? sheet[key] : ''); }
+      function showSheetReadOnly(readOnly) {
+        sheetFields.forEach(key => { sheetInputs[key].readOnly = readOnly; sheetInputs[key].disabled = false; });
+        sheetSave.hidden = readOnly;
+        document.getElementById('sheetCancel').textContent = readOnly ? 'Close' : 'Cancel';
+      }
+      function closeCharacterSheet() { sheetOverlay.classList.remove('open'); activeSheetPerson = null; }
+      document.getElementById('sheetClose').addEventListener('click', closeCharacterSheet);
+      document.getElementById('sheetCancel').addEventListener('click', closeCharacterSheet);
+      sheetOverlay.addEventListener('click', event => { if (event.target === sheetOverlay) closeCharacterSheet(); });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape' && sheetOverlay.classList.contains('open')) closeCharacterSheet(); });
+      function openCharacterSheet(person) {
+        if (!person) return;
+        activeSheetPerson = person;
+        const self = person.id === socket.id;
+        editingOwnSheet = self;
+        sheetTitle.textContent = `${person.name}'s Character Sheet`;
+        sheetHint.textContent = self ? (signedIn ? 'Only you can edit this sheet. Other people can view it from the online list.' : 'Guest sheet: visible while you are online; it will not be saved to the server.') : 'Read-only character sheet. Only its owner can edit it.';
+        showSheetReadOnly(!self);
+        const localKey = 'lobbyzero_guest_sheet_v1';
+        let localGuestSheet = {};
+        try { localGuestSheet = JSON.parse(localStorage.getItem(localKey) || '{}'); } catch (_) {}
+        const initialSheet = self && !signedIn ? localGuestSheet : (person.sheet || {});
+        fillSheetForm(initialSheet);
+        sheetOverlay.classList.add('open');
+        if (socket.connected) {
+          socket.emit('get_character_sheet', { targetId: person.id }, response => {
+            if (!response || response.error || activeSheetPerson?.id !== person.id) return;
+            const sheet = response.sheet || {};
+            if (self && !signedIn) {
+              if (!Object.keys(sheet).length && Object.keys(localGuestSheet).length) socket.emit('save_character_sheet', { sheet: localGuestSheet }, () => {});
+              else fillSheetForm(sheet);
+            } else fillSheetForm(sheet);
+          });
+        }
+      }
+      sheetForm.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!editingOwnSheet || !activeSheetPerson || activeSheetPerson.id !== socket.id) return;
+        const sheet = readSheetForm();
+        if (!signedIn) {
+          try { localStorage.setItem('lobbyzero_guest_sheet_v1', JSON.stringify(sheet)); } catch (_) {}
+        }
+        sheetSave.disabled = true;
+        socket.emit('save_character_sheet', { sheet }, response => {
+          sheetSave.disabled = false;
+          if (response && response.error) { showToast(response.error); return; }
+          if (!signedIn) showToast('Guest sheet updated for this session. It is not saved to an account.');
+          else showToast('Character sheet saved.');
+          const current = participants.get(socket.id);
+          if (current) current.sheet = sheet;
+          closeCharacterSheet();
+        });
+      });
       const defaultAvatar = 'https://placehold.co/90x90/17140b/ffd15a?text=RP';
       let lastMessageKey = '';
       let lastMessageTime = 0;
@@ -1251,6 +1357,8 @@
               id: person.id,
               name: typeof person.personagem === 'string' && person.personagem.trim() ? person.personagem.trim() : 'Anonymous Wanderer',
               photo: validImageUrl(person.foto) ? person.foto : '',
+              accountName: typeof person.accountName === 'string' ? person.accountName : '',
+              sheet: person.sheet && typeof person.sheet === 'object' ? person.sheet : {},
               online: true
             });
           });
@@ -1272,6 +1380,11 @@
         entries.forEach(person => {
           const row = document.createElement('div');
           row.className = 'member-entry';
+          row.tabIndex = 0;
+          row.setAttribute('role', 'button');
+          row.setAttribute('aria-label', `View ${person.name}'s character sheet`);
+          row.addEventListener('click', () => openCharacterSheet(person));
+          row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openCharacterSheet(person); } });
           const avatar = document.createElement('div');
           avatar.className = 'user-avatar';
           if (person.photo) {

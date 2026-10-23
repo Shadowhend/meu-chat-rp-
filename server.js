@@ -156,13 +156,29 @@ io.use(async (socket, next) => {
   } catch (error) { console.error('Socket auth check failed:', error.message); next(new Error('Unable to connect right now.')); }
 });
 function emitOnline() {
-  // Guest sheets live only in memory, so include them in the live roster.
-  // Account sheets are fetched from PostgreSQL when someone opens the profile.
-  io.emit('lista_participantes', Array.from(online.entries()).map(([id, person]) => ({
-    id, personagem: person.personagem, foto: person.foto,
-    accountName: person.accountName || 'Guest',
-    sheet: person.isAccount ? undefined : (person.sheet || {})
-  })));
+  // Each registered account appears only once in each viewer's roster, even
+  // when several tabs/devices are connected. For the account owner, prefer
+  // that viewer's own socket so their profile remains editable in that tab.
+  // Guests remain separate participants per connection.
+  const entries = Array.from(online.entries());
+  for (const viewer of io.sockets.sockets.values()) {
+    const chosen = new Map();
+    for (const [id, person] of entries) {
+      const key = person.isAccount
+        ? `account:${String(person.accountName || '').toLowerCase()}`
+        : `guest:${id}`;
+      const existing = chosen.get(key);
+      const viewerOwnAccount = person.isAccount && viewer.user &&
+        String(viewer.user.username).toLowerCase() === String(person.accountName || '').toLowerCase();
+      if (!existing || viewerOwnAccount) chosen.set(key, { id, person });
+    }
+    const roster = Array.from(chosen.values()).map(({ id, person }) => ({
+      id, personagem: person.personagem, foto: person.foto,
+      accountName: person.accountName || 'Guest',
+      sheet: person.isAccount ? undefined : (person.sheet || {})
+    }));
+    viewer.emit('lista_participantes', roster);
+  }
 }
 function safePhoto(value) {
   if (typeof value !== 'string' || value.length > 2000) return '';

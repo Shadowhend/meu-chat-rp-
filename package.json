@@ -1,6 +1,14 @@
 {
+  "name": "lobbyzero",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LobbyZero roleplay chat",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
   "dependencies": {
-    "express": "^5.3.0",
-    "socket.io": "^4.8.4"
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "socket.io": "^4.8.1"
   }
 }

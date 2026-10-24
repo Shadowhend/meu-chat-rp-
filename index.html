@@ -159,11 +159,11 @@
     .welcome button { background: none; border: 0; color: #d0b7a8; font-size: 12px; padding: 0; }
     .welcome button:hover { color: #fff; text-decoration: underline; }
 
-    .message-row { display: flex; gap: 16px; padding: 3px 16px; margin-top: 0; }
+    .message-row { display: flex; flex: 0 0 auto; width: 100%; box-sizing: border-box; align-items: flex-start; gap: 16px; padding: 3px 16px; margin-top: 0; }
     .message-row:hover { background: rgba(4,4,5,.07); }
     .message-row.grouped { padding-top: 1px; }
     .message-avatar {
-      width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover;
+      width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover; cursor: pointer; border: 0; padding: 0;
       background: #17110f; margin-top: 2px;
     }
     .message-avatar-spacer { width: 40px; flex: 0 0 40px; }
@@ -301,7 +301,7 @@
 
 
     /* Own messages align right; other participants remain on the left. */
-    .message-row.own-message { justify-content: flex-end; }
+    .message-row.own-message { justify-content: flex-end; align-self: stretch; }
     .message-row.own-message .message-content { flex: 0 1 auto; max-width: min(78%, 820px); }
     .message-row.own-message .message-meta { justify-content: flex-end; }
     .message-row.own-message .message-text,
@@ -738,7 +738,7 @@
     .message-name { font-size:13px; font-weight:700; color:#f0d27c; }
     .message-time { margin-left:2px; }
     .message-text { line-height:1.5; }
-    .message-row.own-message { justify-content:flex-end; }
+    .message-row.own-message { justify-content:flex-end; align-self:stretch; }
     .message-row.own-message .message-content { background:#302d24; border-color:#625127; border-radius:14px 4px 14px 14px; }
     .message-row.own-message .message-meta { justify-content:flex-end; }
     .message-row.own-message .message-name { color:#ffda6a; }
@@ -1494,7 +1494,8 @@
           id: data.id,
           name: typeof data.personagem === 'string' && data.personagem.trim() ? data.personagem.trim() : 'Anonymous Wanderer',
           photo: validImageUrl(data.foto) ? data.foto : '',
-          online: true
+          accountName: typeof data.accountName === 'string' ? data.accountName : 'Guest',
+          sheet: {}, online: true
         });
         renderParticipants();
       }
@@ -1575,7 +1576,8 @@
         lastMessageTime = now;
 
         const row = document.createElement('article');
-        row.className = 'message-row' + (grouped ? ' grouped' : '') + (data.id && data.id === socket.id ? ' own-message' : '');
+        const ownMessage = (data.id && data.id === socket.id) || (!!window.currentLobbyUsername && !!data.accountName && String(data.accountName).toLowerCase() === String(window.currentLobbyUsername).toLowerCase());
+        row.className = 'message-row' + (grouped ? ' grouped' : '') + (ownMessage ? ' own-message' : '');
         row.dataset.userId = data.id || '';
         if (data.messageId) row.dataset.messageId = data.messageId;
         if (data.id && mutedUsers.has(data.id)) row.hidden = true;
@@ -1586,6 +1588,9 @@
           avatar.alt = '';
           avatar.loading = 'lazy';
           avatar.src = validImageUrl(data.foto) ? data.foto : defaultAvatar;
+          avatar.tabIndex = 0; avatar.setAttribute('role', 'button'); avatar.setAttribute('aria-label', `Open ${data.personagem || 'user'} character sheet`);
+          const openSenderSheet = () => { const match = participants.get(data.id) || Array.from(participants.values()).find(person => data.accountName && person.accountName && person.accountName.toLowerCase() === String(data.accountName).toLowerCase()); if (match) openCharacterSheet(match); else showToast('This user is no longer online.'); };
+          avatar.addEventListener('click', openSenderSheet); avatar.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openSenderSheet(); } });
           avatar.onerror = () => { avatar.onerror = null; avatar.src = defaultAvatar; };
           row.appendChild(avatar);
         } else {

@@ -392,6 +392,7 @@ io.on('connection', socket => {
     const current = online.get(socket.id) || { personagem: accountName, foto: '' };
     const message = {
       id: socket.id,
+      accountName,
       personagem: safeName(data.personagem) || current.personagem || accountName,
       texto: text,
       foto: safePhoto(data.foto) || current.foto || (socket.user && socket.user.avatarUrl) || '',

@@ -1101,6 +1101,7 @@
           </div>
         </div>
         <input type="file" id="serverMusicFile" accept="audio/mpeg,audio/mp3,audio/ogg,audio/wav,audio/mp4,audio/webm" hidden><audio id="serverMusicPlayer" controls hidden></audio>
+        <div id="bankaiThemePlayer" aria-hidden="true" style="position:fixed;width:1px;height:1px;overflow:hidden;left:-10px;bottom:0;opacity:0;pointer-events:none"></div>
         <button class="image-button" id="imageButton" type="button" title="Send an image" aria-label="Send an image"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2.5-2.5L20 18"/></svg></button>
         <input type="file" id="imageFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         <input type="text" id="mensagem" placeholder="Write a message..." autocomplete="off" maxlength="4000" aria-label="Message">
@@ -1475,6 +1476,15 @@
       socket.on('community_tool_permissions', data => setCommunityToolPermissions(!!(data && data.isAdmin)));
       socket?.on('server_background_changed', data => { if(data && data.url) { chatRoot.style.setProperty('--chat-wallpaper', `linear-gradient(rgba(8,8,10,.58),rgba(8,8,10,.58)),url("${data.url}")`); chatRoot.classList.add('has-wallpaper'); } else { chatRoot.style.removeProperty('--chat-wallpaper'); chatRoot.classList.remove('has-wallpaper'); } });
       socket?.on('server_music_changed', async data => { if(!data || !data.url) { serverMusicPlayer.pause(); serverMusicPlayer.removeAttribute('src'); serverMusicPlayer.load(); return; } serverMusicPlayer.src=data.url; serverMusicPlayer.volume=(Number(musicVolume.value)||0)/100; serverMusicPlayer.hidden=true; try { await serverMusicPlayer.play(); } catch (_) { showToast('O navegador bloqueou a reprodução automática. Abra o + e toque em “Tocar música”.'); serverMusicPlayer.hidden=true; } });
+      let bankaiThemeTimer = null;
+      socket?.on('bankai_theme_trigger', data => {
+        const player = document.getElementById('bankaiThemePlayer');
+        if (!player) return;
+        // Restart the embedded YouTube clip at 00:08 and stop at 00:20 (12 seconds).
+        player.innerHTML = '<iframe title="Bankai theme" width="1" height="1" src="https://www.youtube-nocookie.com/embed/3aSL6scMw5E?autoplay=1&start=8&end=20&playsinline=1&rel=0" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" style="border:0" tabindex="-1"></iframe>';
+        if (bankaiThemeTimer) clearTimeout(bankaiThemeTimer);
+        bankaiThemeTimer = setTimeout(() => { player.innerHTML = ''; bankaiThemeTimer = null; }, 13000);
+      });
 
       setConnection(false, 'Connecting…');
 

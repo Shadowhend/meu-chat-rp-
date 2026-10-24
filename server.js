@@ -460,6 +460,10 @@ io.on('connection', socket => {
     if (history.length > 100) history.shift();
     socket.to(socket.community).emit('enviar_msg_rp', message);
     socket.emit('enviar_msg_rp', message);
+    // Bleach RP easter egg: any message containing the standalone word Bankai triggers the community clip.
+    if (/(^|[^\p{L}])bankai([^\p{L}]|$)/iu.test(text)) {
+      io.to(socket.community).emit('bankai_theme_trigger', { by: message.personagem, at: Date.now() });
+    }
     if (typeof ack === 'function') ack({ ok: true });
   });
   socket.on('disconnect', () => { online.delete(socket.id); imageLastSent.delete(socket.id); mutedGuests.delete(socket.id); emitOnline(); });

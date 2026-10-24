@@ -1065,6 +1065,8 @@
       <span id="onlineCount" class="online-count">0 online</span><span id="status">Connecting…</span>
     </header>
 
+    <div id="pinnedMessageBar" hidden style="margin:8px 12px;padding:10px 12px;border:1px solid #444;border-radius:9px;background:#111;color:#eee;font-size:13px"><strong>📌 Mensagem fixada</strong><div id="pinnedMessageText" style="margin-top:4px;overflow-wrap:anywhere"></div><button id="unpinMessageButton" type="button" hidden style="margin-top:6px;background:#222;color:#ddd;border:1px solid #555;border-radius:6px;padding:4px 8px">Desafixar (ADM)</button></div>
+    <div id="typingIndicator" aria-live="polite" hidden style="padding:0 16px 6px;color:#999;font-size:12px"></div>
     <section id="chat" aria-label="Global roleplay chat" aria-live="polite">
       <div class="welcome" id="tutorialContainer">
         <h2>Welcome to Lobby Zero</h2>
@@ -1471,7 +1473,7 @@
       communityRail?.addEventListener('click', event => { if (event.target.closest('[data-community]')) setMobileCommunityOpen(false); });
       communitySelect.addEventListener('change', () => { localStorage.setItem('lobbyzero_community', communitySelect.value); const url = new URL(location.href); url.searchParams.set('community', communitySelect.value); location.href = url.toString(); });
       const socket = io({ query: { community: communitySelect.value } });
-      socket.on('community_tool_permissions', data => setCommunityToolPermissions(!!(data && data.isAdmin)));
+      socket.on('community_tool_permissions', data => { window.lobbyCanPin=!!(data&&data.isAdmin); setCommunityToolPermissions(!!(data && data.isAdmin)); document.getElementById('unpinMessageButton').hidden=!window.lobbyCanPin; });
       socket?.on('server_background_changed', data => { if(data && data.url) { chatRoot.style.setProperty('--chat-wallpaper', `linear-gradient(rgba(8,8,10,.58),rgba(8,8,10,.58)),url("${data.url}")`); chatRoot.classList.add('has-wallpaper'); } else { chatRoot.style.removeProperty('--chat-wallpaper'); chatRoot.classList.remove('has-wallpaper'); } });
       socket?.on('server_music_changed', async data => { if(!data || !data.url) { serverMusicPlayer.pause(); serverMusicPlayer.removeAttribute('src'); serverMusicPlayer.load(); return; } serverMusicPlayer.src=data.url; serverMusicPlayer.volume=(Number(musicVolume.value)||0)/100; serverMusicPlayer.hidden=true; try { await serverMusicPlayer.play(); } catch (_) { showToast('O navegador bloqueou a reprodução automática. Abra o + e toque em “Tocar música”.'); serverMusicPlayer.hidden=true; } });
 
@@ -1756,6 +1758,9 @@
             content.appendChild(text);
           }
         }
+        if (data.replyTo && data.replyTo.messageId) { const quote=document.createElement('div'); quote.className='message-reply-preview'; quote.textContent='↪ '+(data.replyTo.personagem||'Mensagem')+': '+(data.replyTo.texto||''); quote.style.cssText='font-size:12px;color:#aaa;border-left:2px solid #666;padding:3px 7px;margin-bottom:5px;overflow-wrap:anywhere'; content.prepend(quote); }
+        const replyButton=document.createElement('button'); replyButton.type='button'; replyButton.textContent='Responder'; replyButton.style.cssText='font-size:11px;background:transparent;color:#999;border:0;cursor:pointer;margin-top:4px'; replyButton.addEventListener('click',()=>{ window.lobbyReplyTarget={messageId:data.messageId||'',personagem:data.personagem||'Mensagem',texto:String(data.texto||'').slice(0,300)}; inputMensagem.value=''; inputMensagem.placeholder='Respondendo a '+window.lobbyReplyTarget.personagem+'…'; inputMensagem.focus(); }); content.appendChild(replyButton);
+        if (window.lobbyCanPin && data.messageId) { const pinButton=document.createElement('button'); pinButton.type='button'; pinButton.textContent='Fixar'; pinButton.style.cssText='font-size:11px;background:transparent;color:#999;border:0;cursor:pointer;margin-top:4px'; pinButton.addEventListener('click',()=>socket.emit('pin_message',{messageId:data.messageId},r=>showToast(r&&r.error||'Mensagem fixada.'))); content.appendChild(pinButton); }
         row.appendChild(content);
         chat.appendChild(row);
         chat.scrollTop = chat.scrollHeight;
@@ -1775,14 +1780,17 @@
         let payloadText = texto;
         if (texto.toLowerCase() === '/d20') payloadText = `__DICE_ROLL__:${Math.floor(Math.random() * 20) + 1}`;
         sendButton.disabled = true;
-        socket.emit('msg_rp', { personagem, texto: payloadText, foto }, (response) => {
+        socket.emit('msg_rp', { personagem, texto: payloadText, foto, replyTo: window.lobbyReplyTarget || null }, (response) => {
           sendButton.disabled = !socket.connected;
           if (response && response.error) { showToast(`Message error: ${response.error}`); return; }
           inputMensagem.value = '';
+          window.lobbyReplyTarget = null; inputMensagem.placeholder = 'Message…';
           inputMensagem.focus();
           updateSelfPreview();
         });
       }
+      let typingTimer=null, typingSent=false;
+      inputMensagem.addEventListener('input',()=>{ if(!socket.connected)return; if(!typingSent){socket.emit('typing_status',{typing:true});typingSent=true;} clearTimeout(typingTimer); typingTimer=setTimeout(()=>{socket.emit('typing_status',{typing:false});typingSent=false;},1200); });
       sendButton.addEventListener('click', sendMessage);
       inputMensagem.addEventListener('keydown', event => {
         if (event.key === 'Enter' && !event.shiftKey) {
@@ -1810,7 +1818,11 @@
         if (!Array.isArray(history)) return;
         history.forEach(renderMessage);
       });
-      socket.on('enviar_msg_rp', renderMessage);
+      socket.on('enviar_msg_rp', data=>{ renderMessage(data); if(typingSent){socket.emit('typing_status',{typing:false});typingSent=false;clearTimeout(typingTimer);} });
+      const typingNames=new Map();
+      socket.on('typing_status',data=>{if(!data||!data.id)return;if(data.typing)typingNames.set(data.id,data.name||'Alguém');else typingNames.delete(data.id);const el=document.getElementById('typingIndicator');const names=Array.from(typingNames.values());el.hidden=!names.length;el.textContent=names.length===1?names[0]+' está digitando…':names.length===2?names.join(' e ')+' estão digitando…':names.length>2?'Várias pessoas estão digitando…':'';});
+      socket.on('pinned_message_changed',data=>{const bar=document.getElementById('pinnedMessageBar'),txt=document.getElementById('pinnedMessageText'),unpin=document.getElementById('unpinMessageButton');const m=data&&data.message;if(!m){bar.hidden=true;return;}bar.hidden=false;txt.textContent=(m.personagem||m.accountName||'Usuário')+': '+(m.texto||'[imagem]');unpin.hidden=!window.lobbyCanPin;});
+      document.getElementById('unpinMessageButton').addEventListener('click',()=>socket.emit('unpin_message',r=>showToast(r&&r.error||'Mensagem desafixada.')));
       socket.on('admin_message_deleted', ({messageId}) => { if (!messageId) return; document.querySelectorAll('[data-message-id]').forEach(node => { if (node.dataset.messageId === String(messageId)) node.remove(); }); });
       socket.on('admin_history_cleared', ({community}) => { if (community !== communitySelect.value) return; document.querySelectorAll('#chat [data-message-id]').forEach(node => node.remove()); lastMessageKey = ''; lastMessageTime = 0; showToast('O histórico desta comunidade foi limpo.'); });
       socket.on('admin_disconnected', payload => { showToast(payload && payload.message || 'Disconnected by an administrator.'); });

@@ -1005,15 +1005,21 @@
 
   <style id="plus-menu-size-fix">
     /* Keep the + popover isolated from global button/input typography. */
-    #plusTools.plus-tools { box-sizing:border-box !important; width:max-content !important; max-width:calc(100vw - 24px) !important; gap:7px !important; padding:8px !important; align-items:center !important; flex-wrap:wrap !important; }
+    #plusTools.plus-tools { box-sizing:border-box !important; width:max-content !important; max-width:calc(100vw - 24px) !important; gap:7px !important; padding:8px !important; align-items:stretch !important; flex-wrap:nowrap !important; }
+    #plusTools [hidden] { display:none !important; }
+    #plusTools .plus-menu-page { display:flex; align-items:center; gap:7px; }
+    #plusTools .plus-menu-page[hidden] { display:none !important; }
+    #plusTools .music-controls-page { align-items:flex-start; }
+    #plusTools .music-controls-page > #musicControlsBack { align-self:flex-start; }
     #plusTools.plus-tools, #plusTools.plus-tools * { box-sizing:border-box !important; font-family:inherit !important; line-height:1.2 !important; letter-spacing:normal !important; text-transform:none !important; }
     #plusTools.plus-tools > button { display:inline-flex !important; align-items:center !important; justify-content:center !important; flex:0 0 38px !important; width:38px !important; min-width:38px !important; max-width:38px !important; height:38px !important; min-height:38px !important; max-height:38px !important; margin:0 !important; padding:0 !important; font-size:14px !important; line-height:1 !important; border-radius:10px !important; }
     #plusTools.plus-tools > button svg { width:19px !important; height:19px !important; flex:none !important; }
     #plusTools.plus-tools > #stopServerMusicTool { flex:0 0 auto !important; width:auto !important; min-width:78px !important; max-width:none !important; padding:0 9px !important; font-size:11px !important; white-space:nowrap !important; }
-    #plusTools .music-client-controls { display:flex !important; flex:0 0 132px !important; width:132px !important; min-width:132px !important; max-width:132px !important; gap:5px !important; padding:3px 5px !important; font-size:11px !important; line-height:1.2 !important; }
+    #plusTools .music-client-controls { display:flex !important; flex-direction:column !important; flex:0 0 132px !important; width:132px !important; min-width:132px !important; max-width:132px !important; gap:5px !important; padding:3px 5px !important; font-size:11px !important; line-height:1.2 !important; }
     #plusTools .music-client-controls label { display:flex !important; align-items:center !important; justify-content:space-between !important; font-size:11px !important; line-height:1.2 !important; margin:0 !important; }
     #plusTools .music-client-controls input[type="range"] { display:block !important; width:120px !important; min-width:0 !important; height:16px !important; margin:0 !important; padding:0 !important; font-size:11px !important; }
     #plusTools .music-client-controls button { display:inline-flex !important; align-items:center !important; justify-content:center !important; align-self:flex-start !important; width:auto !important; min-width:0 !important; max-width:100% !important; height:26px !important; min-height:26px !important; padding:0 8px !important; margin:0 !important; font-size:11px !important; line-height:1 !important; white-space:nowrap !important; border-radius:7px !important; }
+    #plusTools #musicControlsBack { flex:0 0 34px !important; width:34px !important; min-width:34px !important; max-width:34px !important; height:34px !important; min-height:34px !important; padding:0 !important; }
     @media(max-width:600px) {
       #plusTools.plus-tools { left:0 !important; bottom:48px !important; max-width:calc(100vw - 20px) !important; gap:6px !important; padding:7px !important; }
       #plusTools.plus-tools > button { flex-basis:34px !important; width:34px !important; min-width:34px !important; max-width:34px !important; height:34px !important; min-height:34px !important; max-height:34px !important; }
@@ -1077,11 +1083,22 @@
         <button class="utility-button" id="backgroundButton" type="button" title="Choose background image" aria-label="Choose background image">+</button>
         <input type="file" id="backgroundFile" accept="image/*" hidden>
         <div id="plusTools" class="plus-tools" aria-hidden="true">
-          <button type="button" id="personalBackgroundTool" title="Meu fundo" aria-label="Meu fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 3-4 5 6"/></svg></button>
-          <div class="music-client-controls" aria-label="Controles locais da música"><label for="musicVolume">Volume <span id="musicVolumeValue">50%</span></label><input id="musicVolume" type="range" min="0" max="100" value="50" aria-label="Volume da música neste dispositivo"><button type="button" id="playLocalMusic" title="Tocar música neste dispositivo">Tocar música</button><button type="button" id="stopLocalMusic" title="Parar música só para mim">Parar aqui</button></div>
-          <button type="button" id="serverMusicTool" title="Escolher música para a comunidade (ADM)" aria-label="Música do servidor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
-          <button type="button" id="stopServerMusicTool" title="Parar música para todos (ADM)" aria-label="Parar música para todos">Parar todos</button>
-          <button type="button" id="serverBackgroundTool" title="Fundo do servidor (ADM)" aria-label="Fundo do servidor"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12"/></svg></button>
+          <div id="plusMainPage" class="plus-menu-page">
+            <button type="button" id="personalBackgroundTool" title="Meu fundo" aria-label="Meu fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 3-4 5 6"/></svg></button>
+            <button type="button" id="musicControlsTool" title="Controles de música" aria-label="Controles de música"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg></button>
+            <button type="button" id="serverMusicTool" title="Escolher música para a comunidade (ADM)" aria-label="Música do servidor" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+            <button type="button" id="serverBackgroundTool" title="Fundo do servidor (ADM)" aria-label="Fundo do servidor" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12"/></svg></button>
+          </div>
+          <div id="musicControlsPage" class="plus-menu-page music-controls-page" hidden>
+            <button type="button" id="musicControlsBack" title="Voltar" aria-label="Voltar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h11"/></svg></button>
+            <div class="music-client-controls" aria-label="Controles locais da música">
+              <label for="musicVolume">Volume <span id="musicVolumeValue">50%</span></label>
+              <input id="musicVolume" type="range" min="0" max="100" value="50" aria-label="Volume da música neste dispositivo">
+              <button type="button" id="playLocalMusic" title="Tocar música neste dispositivo">Tocar aqui</button>
+              <button type="button" id="stopLocalMusic" title="Parar música só para mim">Parar aqui</button>
+              <button type="button" id="stopServerMusicTool" title="Parar música para todos (ADM)" aria-label="Parar música para todos" hidden>Parar todos</button>
+            </div>
+          </div>
         </div>
         <input type="file" id="serverMusicFile" accept="audio/mpeg,audio/mp3,audio/ogg,audio/wav,audio/mp4,audio/webm" hidden><audio id="serverMusicPlayer" controls hidden></audio>
         <button class="image-button" id="imageButton" type="button" title="Send an image" aria-label="Send an image"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2.5-2.5L20 18"/></svg></button>
@@ -1181,7 +1198,7 @@
       document.getElementById('registerAction').addEventListener('click', () => { if (authForm.reportValidity()) authRequest('/api/register'); });
       fetch('/api/me', {credentials:'same-origin'}).then(async r => {
         if (r.ok) {
-          const user = await r.json(); signedIn = true; hideAuth();
+          const user = await r.json(); signedIn = true; setCommunityToolPermissions(false); hideAuth();
           document.getElementById('logoutButton').textContent = 'Log out';
           updateLogoutVisibility();
           document.getElementById('topLoginButton').textContent = user.username;
@@ -1189,9 +1206,9 @@
           if (user.avatarUrl && validImageUrl(user.avatarUrl)) inputFoto.value = user.avatarUrl;
           updateSelfPreview();
         } else {
-          signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; updateLogoutVisibility(); hideAuth();
+          signedIn = false; setCommunityToolPermissions(false); document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; updateLogoutVisibility(); hideAuth();
         }
-      }).catch(() => { signedIn = false; document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; updateLogoutVisibility(); hideAuth(); showToast('Account service unavailable; you can still chat as a guest.'); });
+      }).catch(() => { signedIn = false; setCommunityToolPermissions(false); document.getElementById('logoutButton').textContent = 'Log in'; document.getElementById('topLoginButton').textContent = 'Log in'; updateLogoutVisibility(); hideAuth(); showToast('Account service unavailable; you can still chat as a guest.'); });
 
       const statusEl = document.getElementById('status');
       const chat = document.getElementById('chat');
@@ -1264,14 +1281,30 @@
       musicVolume.addEventListener('input', () => setMusicVolume(musicVolume.value));
       document.getElementById('playLocalMusic').addEventListener('click', async () => { try { await serverMusicPlayer.play(); showToast('Música tocando neste dispositivo.'); } catch (_) { showToast('Não foi possível iniciar a música. Confira se há uma música selecionada.'); } });
       document.getElementById('stopLocalMusic').addEventListener('click', () => { serverMusicPlayer.pause(); showToast('Música parada só neste dispositivo.'); });
-      function setCommunityToolPermissions(isAdmin) { document.getElementById('serverMusicTool').hidden = !isAdmin; document.getElementById('stopServerMusicTool').hidden = !isAdmin; document.getElementById('serverBackgroundTool').hidden = !isAdmin; }
+      function setMusicControlsPage(show) {
+        document.getElementById('plusMainPage').hidden = !!show;
+        document.getElementById('musicControlsPage').hidden = !show;
+        plusTools.classList.toggle('music-controls-open', !!show);
+      }
+      let serverAdminPermission = false;
+      function setCommunityToolPermissions(isAdmin) {
+        serverAdminPermission = !!isAdmin;
+        const allowed = serverAdminPermission && !!signedIn;
+        document.getElementById('serverMusicTool').hidden = !allowed;
+        document.getElementById('stopServerMusicTool').hidden = !allowed;
+        document.getElementById('serverBackgroundTool').hidden = !allowed;
+      }
       setCommunityToolPermissions(false);
+      setMusicControlsPage(false);
+      document.getElementById('musicControlsTool').addEventListener('click', () => setMusicControlsPage(true));
+      document.getElementById('musicControlsBack').addEventListener('click', () => setMusicControlsPage(false));
       serverMusicFile.addEventListener('change', () => { const file=serverMusicFile.files && serverMusicFile.files[0]; if(!file)return; if(!file.type.startsWith('audio/')) { showToast('Escolha um arquivo de áudio.'); return; } if(file.size>2*1024*1024) { showToast('O áudio precisa ter no máximo 2 MB.'); return; } const reader=new FileReader(); reader.onload=()=>socket.emit('admin_server_music',{url:String(reader.result||''),name:file.name}, result=>showToast(result&&result.error?result.error:'Música enviada para a comunidade.')); reader.readAsDataURL(file); serverMusicFile.value=''; });
       backgroundButton.addEventListener('click', () => {
         const open = !plusTools.classList.contains('open');
+        if (open) setMusicControlsPage(false);
         plusTools.classList.toggle('open', open); plusTools.setAttribute('aria-hidden', String(!open));
       });
-      document.addEventListener('click', event => { if (!event.target.closest('#plusTools') && !event.target.closest('#backgroundButton')) { plusTools.classList.remove('open'); plusTools.setAttribute('aria-hidden','true'); } });
+      document.addEventListener('click', event => { if (!event.target.closest('#plusTools') && !event.target.closest('#backgroundButton')) { plusTools.classList.remove('open'); plusTools.setAttribute('aria-hidden','true'); setMusicControlsPage(false); } });
       document.getElementById('personalBackgroundTool').addEventListener('click', () => { plusTools.classList.remove('open'); const choice=window.confirm('OK: escolher uma imagem para SEU fundo. Cancelar: remover seu fundo.'); if(choice) backgroundFile.click(); else { applyWallpaper(''); try{localStorage.removeItem('lobbyzero_wallpaper')}catch(_){} } });
       document.getElementById('serverMusicTool').addEventListener('click', () => serverMusicFile.click());
       document.getElementById('stopServerMusicTool').addEventListener('click', () => { if(confirm('Parar a música para todos nesta comunidade?')) socket.emit('admin_server_music_stop', {}, result => showToast(result && result.error ? result.error : 'Música parada para toda a comunidade.')); });

@@ -1091,10 +1091,9 @@
           </div>
           <div id="musicControlsPage" class="plus-menu-page music-controls-page" hidden>
             <button type="button" id="musicControlsBack" title="Voltar" aria-label="Voltar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h11"/></svg></button>
-            <div class="music-client-controls" aria-label="Controles locais da música">
+            <div class="music-client-controls" aria-label="Volume e reprodução local da música">
               <label for="musicVolume">Volume <span id="musicVolumeValue">50%</span></label>
               <input id="musicVolume" type="range" min="0" max="100" value="50" aria-label="Volume da música neste dispositivo">
-              <button type="button" id="playLocalMusic" title="Tocar música neste dispositivo">Tocar aqui</button>
               <button type="button" id="stopLocalMusic" title="Parar música só para mim">Parar aqui</button>
               <button type="button" id="stopServerMusicTool" title="Parar música para todos (ADM)" aria-label="Parar música para todos" hidden>Parar todos</button>
             </div>
@@ -1279,17 +1278,14 @@
       function setMusicVolume(value) { const volume = Math.max(0, Math.min(100, Number(value) || 0)); serverMusicPlayer.volume = volume / 100; musicVolume.value = String(volume); musicVolumeValue.textContent = volume + '%'; try { localStorage.setItem('lobbyzero_music_volume', String(volume)); } catch (_) {} }
       try { setMusicVolume(localStorage.getItem('lobbyzero_music_volume') ?? 50); } catch (_) { setMusicVolume(50); }
       musicVolume.addEventListener('input', () => setMusicVolume(musicVolume.value));
-      document.getElementById('playLocalMusic').addEventListener('click', async () => { try { await serverMusicPlayer.play(); showToast('Música tocando neste dispositivo.'); } catch (_) { showToast('Não foi possível iniciar a música. Confira se há uma música selecionada.'); } });
       document.getElementById('stopLocalMusic').addEventListener('click', () => { serverMusicPlayer.pause(); showToast('Música parada só neste dispositivo.'); });
       function setMusicControlsPage(show) {
         document.getElementById('plusMainPage').hidden = !!show;
         document.getElementById('musicControlsPage').hidden = !show;
         plusTools.classList.toggle('music-controls-open', !!show);
       }
-      let serverAdminPermission = false;
       function setCommunityToolPermissions(isAdmin) {
-        serverAdminPermission = !!isAdmin;
-        const allowed = serverAdminPermission && !!signedIn;
+        const allowed = !!isAdmin && !!signedIn;
         document.getElementById('serverMusicTool').hidden = !allowed;
         document.getElementById('stopServerMusicTool').hidden = !allowed;
         document.getElementById('serverBackgroundTool').hidden = !allowed;
@@ -1844,5 +1840,20 @@
       updateSelfPreview();
     })();
   </script>
+
+<style id="stable-chat-message-alignment">
+  /* Keep message rows and own-message bubbles on a stable horizontal axis. */
+  .messages, .message-list, .chat-messages { min-width:0 !important; max-width:100% !important; overflow-x:hidden !important; }
+  .message-row { box-sizing:border-box !important; width:100% !important; min-width:0 !important; }
+  .message-row.own-message { display:flex !important; justify-content:flex-end !important; align-items:flex-start !important; width:100% !important; padding-left:10px !important; padding-right:10px !important; box-sizing:border-box !important; }
+  .message-row.own-message .message-content,
+  .message-row.own-message.grouped .message-content { margin-left:0 !important; margin-right:0 !important; flex:0 1 auto !important; min-width:0 !important; max-width:min(78%, 820px) !important; box-sizing:border-box !important; }
+  .message-row.own-message .message-text { box-sizing:border-box !important; max-width:100% !important; overflow-wrap:anywhere !important; }
+  @media (max-width:680px) {
+    .message-row.own-message { padding-left:10px !important; padding-right:10px !important; }
+    .message-row.own-message .message-content,
+    .message-row.own-message.grouped .message-content { max-width:84% !important; }
+  }
+</style>
 </body>
 </html>

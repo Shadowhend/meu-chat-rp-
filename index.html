@@ -2012,6 +2012,68 @@
   .lz-post-error { color:#ff9b9b; font-size:12px; min-height:16px; }
   @media(max-width:520px) { .lz-post-overlay { padding:10px; } }
 
+
+
+/* Mobile repair: make the channel list an actual drawer instead of a broken flex column. */
+@media (max-width: 760px), (pointer: coarse) {
+  html, body { width:100% !important; max-width:100% !important; height:100% !important; min-height:100dvh !important; overflow:hidden !important; }
+  body { display:flex !important; flex-direction:row !important; }
+  .server-rail { width:54px !important; min-width:54px !important; flex:0 0 54px !important; height:100dvh !important; overflow-y:auto !important; padding:8px 5px !important; }
+  .server-rail button, .server-rail .community-button { max-width:44px !important; }
+  .channel-sidebar {
+    display:flex !important; position:fixed !important; z-index:10010 !important;
+    left:54px !important; top:0 !important; bottom:0 !important;
+    width:min(78vw,285px) !important; min-width:0 !important; max-width:285px !important;
+    height:100dvh !important; flex:0 0 auto !important; box-sizing:border-box !important;
+    padding:0 !important; overflow-x:hidden !important; overflow-y:auto !important;
+    transform:translateX(0) !important; opacity:1 !important;
+    box-shadow:12px 0 34px rgba(0,0,0,.42) !important;
+    transition:transform .22s ease, visibility .22s ease !important;
+    visibility:visible !important;
+  }
+  .channel-sidebar .workspace-title { min-height:58px !important; padding:0 12px !important; }
+  .channel-sidebar .sidebar-scroll { width:100% !important; box-sizing:border-box !important; padding:14px 10px !important; }
+  body.channel-sidebar-collapsed .channel-sidebar {
+    display:flex !important; width:min(78vw,285px) !important; flex-basis:auto !important;
+    min-width:0 !important; padding:0 !important; border-right:1px solid #24232e !important;
+    transform:translateX(calc(-100% - 60px)) !important; opacity:1 !important;
+    visibility:hidden !important; overflow:hidden !important;
+  }
+  .main-column { display:flex !important; flex:1 1 0 !important; width:calc(100vw - 54px) !important; min-width:0 !important; max-width:calc(100vw - 54px) !important; height:100dvh !important; overflow:hidden !important; }
+  .chat-header { flex:0 0 auto !important; min-height:56px !important; height:auto !important; box-sizing:border-box !important; display:flex !important; flex-wrap:nowrap !important; gap:7px !important; padding:8px 9px !important; overflow-x:auto !important; overflow-y:hidden !important; scrollbar-width:none !important; }
+  .chat-header::-webkit-scrollbar { display:none !important; }
+  .brand-logo { width:30px !important; height:30px !important; flex:0 0 30px !important; }
+  .chat-header-name { font-size:14px !important; white-space:nowrap !important; }
+  #communityPostsButton { flex:0 0 auto !important; width:auto !important; min-width:66px !important; max-width:80px !important; height:34px !important; padding:0 9px !important; flex-direction:row !important; gap:5px !important; white-space:nowrap !important; font-size:11px !important; }
+  #onlineCount, #status { flex:0 0 auto !important; white-space:nowrap !important; font-size:10px !important; }
+  #toggleMembers { flex:0 0 auto !important; }
+  #chat { flex:1 1 0 !important; min-height:0 !important; min-width:0 !important; width:100% !important; overflow-x:hidden !important; overflow-y:auto !important; }
+  .member-sidebar { display:none !important; }
+  .composer-area { flex:0 0 auto !important; width:100% !important; box-sizing:border-box !important; padding:8px 8px max(8px, env(safe-area-inset-bottom)) !important; }
+  .character-inputs, .composer-meta, .message-composer { min-width:0 !important; max-width:100% !important; }
+  .message-composer { width:100% !important; box-sizing:border-box !important; min-height:54px !important; padding:5px !important; gap:5px !important; }
+  .message-composer textarea, .message-composer input { min-width:0 !important; width:100% !important; font-size:16px !important; }
+  .message-composer button { flex:0 0 40px !important; width:40px !important; height:40px !important; }
+  #toggleChannelSidebar { position:fixed !important; left:62px !important; top:68px !important; z-index:10030 !important; width:30px !important; height:34px !important; display:grid !important; place-items:center !important; border-radius:0 10px 10px 0 !important; box-shadow:4px 4px 14px #0007 !important; }
+  body.channel-sidebar-collapsed #toggleChannelSidebar { left:54px !important; top:68px !important; }
+  .lz-post-overlay { padding:8px !important; }
+  .lz-post-card { width:100% !important; max-width:100% !important; max-height:90dvh !important; border-radius:14px !important; }
+  .lz-post-head { padding:13px !important; }
+  .lz-post-list { padding:10px !important; }
+  .lz-post-form { margin:0 10px 10px !important; padding:10px !important; }
+  .lz-post-form .lz-post-form-actions { flex-wrap:wrap !important; }
+}
+@media (max-width:390px) {
+  .server-rail { width:46px !important; min-width:46px !important; flex-basis:46px !important; }
+  .channel-sidebar { left:46px !important; }
+  .main-column { width:calc(100vw - 46px) !important; max-width:calc(100vw - 46px) !important; }
+  #toggleChannelSidebar { left:54px !important; }
+  body.channel-sidebar-collapsed #toggleChannelSidebar { left:46px !important; }
+  .chat-header { gap:5px !important; padding:7px 6px !important; }
+  .chat-header-name { font-size:12px !important; }
+  #onlineCount { display:none !important; }
+}
+
 </style>
 
 <div class="lz-post-overlay" id="lzPostOverlay" role="dialog" aria-modal="true" aria-labelledby="lzPostTitle">

@@ -2074,6 +2074,40 @@
   #onlineCount { display:none !important; }
 }
 
+
+  /* Final mobile polish: stop the sidebar handle from covering the header/login and remove harsh edges. */
+  @media (max-width:760px), (pointer:coarse) {
+    html, body { width:100% !important; max-width:100% !important; min-width:0 !important; overflow:hidden !important; }
+    body { display:flex !important; flex-direction:row !important; align-items:stretch !important; background:#09090c !important; }
+    .main-column { flex:1 1 0 !important; width:auto !important; min-width:0 !important; max-width:none !important; margin:0 !important; border:0 !important; }
+    .channel-sidebar { border-right:1px solid #292832 !important; border-radius:0 16px 16px 0 !important; background:#111116 !important; box-shadow:8px 0 28px #0007 !important; }
+    .channel-sidebar .workspace-title { border-bottom:1px solid #24242d !important; }
+    .channel-sidebar .channel { border:1px solid transparent !important; border-radius:10px !important; }
+    .channel-sidebar .channel.active { border-color:#65418a !important; background:#28183a !important; }
+    .chat-header { padding-left:12px !important; border-bottom:1px solid #24242d !important; background:#101014 !important; }
+    .composer-area { border-top:1px solid #24242d !important; background:#101014 !important; }
+    .identity-row { display:grid !important; grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; gap:7px !important; }
+    .identity-row input { width:100% !important; min-width:0 !important; box-sizing:border-box !important; }
+    .message-composer { border:1px solid #34333e !important; border-radius:18px !important; background:#15151b !important; box-shadow:0 4px 14px #0002 !important; }
+    #toggleChannelSidebar {
+      position:fixed !important; top:auto !important; bottom:calc(78px + env(safe-area-inset-bottom)) !important;
+      left:10px !important; right:auto !important; z-index:10040 !important;
+      display:grid !important; place-items:center !important; width:38px !important; height:38px !important;
+      min-width:38px !important; padding:0 !important; border:1px solid #393743 !important;
+      border-radius:12px !important; background:#1b1a22 !important; color:#e6d9ff !important;
+      box-shadow:0 5px 16px #0006 !important; font-size:21px !important; line-height:1 !important;
+      transform:none !important;
+    }
+    body:not(.channel-sidebar-collapsed) #toggleChannelSidebar { left:calc(54px + min(78vw, 285px) - 19px) !important; }
+    body.channel-sidebar-collapsed #toggleChannelSidebar { left:10px !important; }
+    .lz-post-overlay { backdrop-filter:blur(5px) !important; background:#050508bd !important; }
+    .lz-post-card { border:1px solid #373541 !important; box-shadow:0 20px 60px #0009 !important; }
+  }
+  @media(max-width:390px) {
+    .identity-row { grid-template-columns:minmax(0,1fr) !important; }
+    body:not(.channel-sidebar-collapsed) #toggleChannelSidebar { left:calc(46px + min(78vw, 285px) - 19px) !important; }
+  }
+
 </style>
 
 <div class="lz-post-overlay" id="lzPostOverlay" role="dialog" aria-modal="true" aria-labelledby="lzPostTitle">

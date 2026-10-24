@@ -660,7 +660,17 @@
       body.mobile-community-open #mobileCommunityToggle { background:#f0f0f2; color:#080809; }
       .chat-header { padding-left:54px !important; }
     }
-  </style>
+  
+    .message-name .role-tag{display:inline-flex;align-items:center;margin-left:6px;padding:2px 6px;border:1px solid #777;border-radius:5px;font-size:9px;letter-spacing:.08em;color:#f5f5f5;vertical-align:middle}
+    .message-name .role-tag.host{background:#f5f5f5;color:#080809;border-color:#f5f5f5}
+    .message-name .role-tag.admin{background:#202024;color:#eee}
+    .message-composer{position:relative}
+    .plus-tools{position:absolute;left:0;bottom:52px;z-index:50;display:flex;gap:8px;padding:9px;background:#101012;border:1px solid #45454b;border-radius:16px;box-shadow:0 12px 35px #000b;opacity:0;transform:translateY(12px) scale(.97);pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+    .plus-tools.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+    .plus-tools button{width:42px;height:42px;border:1px solid #48484e;border-radius:12px;background:#1b1b1f;color:#f5f5f5;font-size:22px;cursor:pointer}
+    .plus-tools button:hover{background:#eee;color:#09090a}
+    @media(max-width:600px){.plus-tools{left:0;max-width:calc(100vw - 36px)}.plus-tools button{width:38px;height:38px}}
+</style>
 
   <style id="lobbyzero-final-overrides">
     :root {
@@ -1045,6 +1055,12 @@
       <div class="message-composer">
         <button class="utility-button" id="backgroundButton" type="button" title="Choose background image" aria-label="Choose background image">+</button>
         <input type="file" id="backgroundFile" accept="image/*" hidden>
+        <div id="plusTools" class="plus-tools" aria-hidden="true">
+          <button type="button" id="personalBackgroundTool" title="Meu fundo" aria-label="Meu fundo">▧</button>
+          <button type="button" id="serverMusicTool" title="Música do servidor" aria-label="Música do servidor">♫</button>
+          <button type="button" id="serverBackgroundTool" title="Fundo do servidor" aria-label="Fundo do servidor">▤</button>
+        </div>
+        <audio id="serverMusicPlayer" controls hidden></audio>
         <button class="image-button" id="imageButton" type="button" title="Send an image" aria-label="Send an image"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3.5 2.5-2.5L20 18"/></svg></button>
         <input type="file" id="imageFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         <input type="text" id="mensagem" placeholder="Write a message..." autocomplete="off" maxlength="4000" aria-label="Message">
@@ -1214,14 +1230,16 @@
         }
         applyWallpaper(localStorage.getItem('lobbyzero_wallpaper') || '');
       } catch (_) {}
+      const plusTools = document.getElementById('plusTools');
+      const serverMusicPlayer = document.getElementById('serverMusicPlayer');
       backgroundButton.addEventListener('click', () => {
-        const choice = window.confirm('OK: escolher uma imagem de fundo. Cancelar: remover o fundo personalizado.');
-        if (choice) backgroundFile.click();
-        else {
-          applyWallpaper('');
-          try { localStorage.removeItem('lobbyzero_wallpaper'); } catch (_) {}
-        }
+        const open = !plusTools.classList.contains('open');
+        plusTools.classList.toggle('open', open); plusTools.setAttribute('aria-hidden', String(!open));
       });
+      document.addEventListener('click', event => { if (!event.target.closest('#plusTools') && !event.target.closest('#backgroundButton')) { plusTools.classList.remove('open'); plusTools.setAttribute('aria-hidden','true'); } });
+      document.getElementById('personalBackgroundTool').addEventListener('click', () => { plusTools.classList.remove('open'); const choice=window.confirm('OK: escolher uma imagem para SEU fundo. Cancelar: remover seu fundo.'); if(choice) backgroundFile.click(); else { applyWallpaper(''); try{localStorage.removeItem('lobbyzero_wallpaper')}catch(_){} } });
+      document.getElementById('serverMusicTool').addEventListener('click', () => { const url=prompt('URL direta de áudio HTTPS (mp3/ogg). Apenas ADMs podem iniciar música para a comunidade:'); if(!url)return; socket.emit('admin_server_music',{url}, result=>{ if(result && result.error) showToast(result.error); else showToast('Música enviada para a comunidade.'); }); });
+      document.getElementById('serverBackgroundTool').addEventListener('click', () => { const url=prompt('URL HTTPS da imagem de fundo compartilhada (somente ADM):'); if(!url)return; socket.emit('admin_server_background',{url}, result=>{ if(result && result.error) showToast(result.error); else showToast('Fundo da comunidade atualizado.'); }); });
       backgroundFile.addEventListener('change', () => {
         const file = backgroundFile.files && backgroundFile.files[0];
         if (!file) return;
@@ -1283,7 +1301,8 @@
       function showSheetReadOnly(readOnly) {
         sheetFields.forEach(key => { sheetInputs[key].readOnly = readOnly; sheetInputs[key].disabled = false; });
         sheetSave.hidden = readOnly;
-        document.getElementById('sheetCancel').textContent = readOnly ? 'Close' : 'Cancel';
+        document.getElementById('sheetCancel').textContent = 'Cancel';
+        document.getElementById('sheetCancel').hidden = readOnly;
       }
       function closeCharacterSheet() { sheetOverlay.classList.remove('open'); activeSheetPerson = null; }
       document.getElementById('sheetClose').addEventListener('click', closeCharacterSheet);
@@ -1387,6 +1406,9 @@
       communityRail?.addEventListener('click', event => { if (event.target.closest('[data-community]')) setMobileCommunityOpen(false); });
       communitySelect.addEventListener('change', () => { localStorage.setItem('lobbyzero_community', communitySelect.value); const url = new URL(location.href); url.searchParams.set('community', communitySelect.value); location.href = url.toString(); });
       const socket = io({ query: { community: communitySelect.value } });
+      socket?.on('server_background_changed', data => { if(data && data.url) { chatRoot.style.setProperty('--chat-wallpaper', `linear-gradient(rgba(8,8,10,.58),rgba(8,8,10,.58)),url("${data.url}")`); chatRoot.classList.add('has-wallpaper'); } else { chatRoot.style.removeProperty('--chat-wallpaper'); chatRoot.classList.remove('has-wallpaper'); } });
+      socket?.on('server_music_changed', async data => { if(!data || !data.url) { serverMusicPlayer.pause(); serverMusicPlayer.removeAttribute('src'); return; } serverMusicPlayer.src=data.url; serverMusicPlayer.hidden=true; try { await serverMusicPlayer.play(); } catch (_) { showToast('A música chegou, mas o navegador bloqueou a reprodução automática. Toque no controle de áudio para iniciar.'); serverMusicPlayer.hidden=false; } });
+
       setConnection(false, 'Connecting…');
 
       function registerPresence() {
@@ -1607,6 +1629,7 @@
           const name = document.createElement('span');
           name.className = 'message-name';
           name.textContent = typeof data.personagem === 'string' && data.personagem.trim() ? data.personagem : 'Anonymous Wanderer';
+          if (data.isHost || data.isAdmin) { const tag=document.createElement('span'); tag.className='role-tag '+(data.isHost?'host':'admin'); tag.textContent=data.isHost?'HOST':'ADM'; name.appendChild(tag); }
           const time = document.createElement('time');
           time.className = 'message-time';
           time.textContent = new Date(data.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

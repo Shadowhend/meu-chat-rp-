@@ -52,6 +52,7 @@ async function initDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_suspensions (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', suspended_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_community_admins (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_suspensions (username_key VARCHAR(32) NOT NULL REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, community VARCHAR(32) NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', suspended_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (username_key, community))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_community_settings (community VARCHAR(32) PRIMARY KEY, background_url TEXT NOT NULL DEFAULT '', music_url TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS lobbyzero_character_sheets (username_key VARCHAR(32) PRIMARY KEY REFERENCES lobbyzero_users(username_key) ON DELETE CASCADE, sheet JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   const bootstrap = safeName(process.env.ADMIN_BOOTSTRAP_USERNAME || '');
   if (bootstrap) {
@@ -327,6 +328,10 @@ function isAllowedImage(data) {
 io.on('connection', socket => {
   const accountName = socket.user ? socket.user.username : 'Guest';
   socket.emit('carregar_historico', roomHistory(socket.community));
+  pool.query('SELECT background_url,music_url FROM lobbyzero_community_settings WHERE community=$1',[socket.community]).then(r=>{const row=r.rows[0]||{}; socket.emit('server_background_changed',{url:row.background_url||''}); if(row.music_url) socket.emit('server_music_changed',{url:row.music_url});}).catch(e=>console.error('Community settings load failed:',e.message));
+  async function canManageCommunity(){ if(!socket.user) return false; if(isSuperAdmin(socket.user)) return true; const r=await pool.query('SELECT 1 FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2',[socket.user.username.toLowerCase(),socket.community]); return !!r.rowCount; }
+  socket.on('admin_server_background', async (data,ack)=>{ const reply=typeof ack==='function'?ack:()=>{}; try { if(!await canManageCommunity()) return reply({error:'Somente administradores desta comunidade podem alterar o fundo.'}); const url=typeof(data&&data.url)==='string'?data.url.trim():''; let parsed; try{parsed=new URL(url)}catch(_){return reply({error:'URL inválida.'})} if(parsed.protocol!=='https:' || url.length>2000) return reply({error:'Use uma URL HTTPS válida de até 2000 caracteres.'}); await pool.query(`INSERT INTO lobbyzero_community_settings(community,background_url) VALUES($1,$2) ON CONFLICT(community) DO UPDATE SET background_url=EXCLUDED.background_url,updated_at=NOW()`,[socket.community,url]); io.to(socket.community).emit('server_background_changed',{url}); reply({ok:true}); } catch(e){console.error('Community background update failed:',e.message);reply({error:'Não foi possível atualizar o fundo.'})} });
+  socket.on('admin_server_music', async (data,ack)=>{ const reply=typeof ack==='function'?ack:()=>{}; try { if(!await canManageCommunity()) return reply({error:'Somente administradores desta comunidade podem controlar a música.'}); const url=typeof(data&&data.url)==='string'?data.url.trim():''; let parsed; try{parsed=new URL(url)}catch(_){return reply({error:'URL inválida.'})} if(parsed.protocol!=='https:' || url.length>2000) return reply({error:'Use uma URL HTTPS válida de áudio direto.'}); await pool.query(`INSERT INTO lobbyzero_community_settings(community,music_url) VALUES($1,$2) ON CONFLICT(community) DO UPDATE SET music_url=EXCLUDED.music_url,updated_at=NOW()`,[socket.community,url]); io.to(socket.community).emit('server_music_changed',{url}); reply({ok:true}); } catch(e){console.error('Community music update failed:',e.message);reply({error:'Não foi possível iniciar a música.'})} });
   socket.on('registrar_participante', data => {
     data = data || {};
     const existing = online.get(socket.id) || {};
@@ -377,7 +382,7 @@ io.on('connection', socket => {
       ack({ error: 'Could not save this character sheet.' });
     }
   });
-  socket.on('msg_rp', (data, ack) => {
+  socket.on('msg_rp', async (data, ack) => {
     data = data || {};
     if (!socket.user && mutedGuests.has(socket.id)) { if (typeof ack === 'function') ack({ error: 'Você está silenciado nesta comunidade.' }); return; }
     const text = typeof data.texto === 'string' ? data.texto.slice(0, 4000) : '';
@@ -390,8 +395,12 @@ io.on('connection', socket => {
       imageLastSent.set(socket.id, now);
     }
     const current = online.get(socket.id) || { personagem: accountName, foto: '' };
+    let isAdmin = false;
+    if (socket.user) { try { isAdmin = isSuperAdmin(socket.user) || !!(await pool.query('SELECT 1 FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2',[socket.user.username.toLowerCase(),socket.community])).rowCount; } catch (_) {} }
     const message = {
       id: socket.id,
+      isHost: isSuperAdmin(socket.user),
+      isAdmin,
       accountName,
       personagem: safeName(data.personagem) || current.personagem || accountName,
       texto: text,

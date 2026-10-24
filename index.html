@@ -1952,8 +1952,8 @@
   :root { --lz-purple:#8b35d6; --lz-purple-soft:#261638; --lz-panel:#101116; --lz-panel-2:#151720; --lz-line:#20222c; }
   body { background:#050506 !important; color:#e8e8ef !important; }
   .server-rail { width:76px !important; flex:0 0 76px !important; background:#090a0e !important; border-right:1px solid #191a22 !important; padding-top:12px !important; }
-  .channel-sidebar { width:286px !important; flex:0 0 286px !important; background:#0e0f14 !important; border-right:1px solid #1b1c25 !important; }
-  .workspace-title { min-height:64px !important; border-bottom:1px solid #1b1c25 !important; padding:0 18px !important; font-size:15px !important; }
+  .channel-sidebar { width:280px !important; flex:0 0 280px !important; min-width:0 !important; background:#101116 !important; border-right:1px solid #24232e !important; transition:width .22s ease, flex-basis .22s ease, opacity .18s ease !important; }
+  .workspace-title { min-height:64px !important; border-bottom:1px solid #24232e !important; padding:0 18px !important; font-size:15px !important; }
   .sidebar-scroll { padding:14px 10px !important; }
   .category-title { color:#858795 !important; letter-spacing:.08em !important; font-size:10px !important; }
   .channel { border-radius:12px !important; margin:4px 0 !important; min-height:42px !important; padding:10px 12px !important; }
@@ -1985,12 +1985,15 @@
   .channel-row { display:flex; align-items:center; gap:5px; margin:2px 8px; }
   .channel-row .channel { flex:1; min-width:0; margin:0 !important; }
   .remove-channel-button { flex:0 0 27px; width:27px; height:32px; border:1px solid #48313b; background:#21161d; color:#e6a5b2; border-radius:7px; cursor:pointer; }
-  body.channel-sidebar-collapsed .channel-sidebar { width:0 !important; flex-basis:0 !important; min-width:0 !important; padding:0 !important; border:0 !important; overflow:hidden !important; }
-  body.channel-sidebar-collapsed .channel-sidebar > * { visibility:hidden; }
-  body.channel-sidebar-collapsed #toggleChannelSidebar { visibility:visible; position:fixed; left:80px; top:34px; z-index:40; }
-  body.channel-sidebar-collapsed .workspace-title { display:none; }
+  #toggleChannelSidebar { position:fixed !important; left:calc(78px + 280px - 42px) !important; top:75px !important; z-index:10020 !important; display:grid !important; place-items:center !important; width:30px !important; height:30px !important; padding:0 !important; border:1px solid #3a3548 !important; border-radius:10px !important; background:#191821 !important; color:#e2d4ff !important; box-shadow:0 4px 14px #0005 !important; cursor:pointer !important; transition:left .22s ease, background .15s ease, transform .15s ease !important; }
+  #toggleChannelSidebar:hover { background:#2a2038 !important; transform:translateY(-1px); }
+  body.channel-sidebar-collapsed .channel-sidebar { width:0 !important; flex-basis:0 !important; min-width:0 !important; padding:0 !important; border:0 !important; overflow:hidden !important; opacity:0 !important; }
+  body.channel-sidebar-collapsed #toggleChannelSidebar { left:86px !important; }
+  .channel-sidebar .sidebar-scroll { padding:18px 10px !important; }
+  .channel-sidebar .category-title { color:#8f91a5 !important; letter-spacing:.08em !important; font-size:10px !important; padding:0 10px !important; margin:4px 0 10px !important; }
+  .channel-sidebar .channel { border-radius:11px !important; min-height:44px !important; }
   .lz-post-card { width:min(620px,100%) !important; }
-  @media(max-width:760px) { #communityPostsButton { width:82px !important; flex-basis:82px !important; height:32px !important; } body.channel-sidebar-collapsed #toggleChannelSidebar { left:12px; top:70px; } }
+  @media(max-width:760px) { #communityPostsButton { width:82px !important; flex-basis:82px !important; height:32px !important; } #toggleChannelSidebar { left:calc(78px + min(82vw,280px) - 42px) !important; top:74px !important; } body.channel-sidebar-collapsed #toggleChannelSidebar { left:86px !important; top:74px !important; } }
   .lz-post-overlay { position:fixed; inset:0; z-index:10050; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.72); backdrop-filter:blur(8px); }
   .lz-post-overlay.open { display:flex; }
   .lz-post-card { width:min(720px,100%); max-height:min(86dvh,850px); overflow:auto; background:#111219; color:#ececf4; border:1px solid #30233d; border-radius:18px; box-shadow:0 24px 80px #000b; }
@@ -2017,6 +2020,21 @@
  <form class="lz-post-form" id="lzPostForm"><strong>Publish an important post</strong><input id="lzPostTitleInput" maxlength="120" placeholder="Title (rules, event, announcement)" required><textarea id="lzPostBodyInput" maxlength="8000" placeholder="Write the important information here…" required></textarea><div class="lz-post-error" id="lzPostError" role="status"></div><div class="lz-post-form-actions"><small style="color:#9999a8">Only community ADMs can publish or delete posts.</small><button type="submit">Publish</button></div></form>
  </section>
 </div>
+<script>
+(() => {
+  const toggle = document.getElementById('toggleChannelSidebar');
+  const sidebar = document.querySelector('.channel-sidebar');
+  if (!toggle || !sidebar) return;
+  // Keep the toggle outside the panel so it remains visible and clickable when collapsed.
+  if (toggle.parentElement !== document.body) document.body.appendChild(toggle);
+  toggle.addEventListener('click', () => {
+    const collapsed = document.body.classList.toggle('channel-sidebar-collapsed');
+    toggle.textContent = collapsed ? '›' : '‹';
+    toggle.title = collapsed ? 'Expandir painel esquerdo' : 'Recolher painel esquerdo';
+    toggle.setAttribute('aria-label', toggle.title);
+  });
+})();
+</script>
 <script>
 (() => {
  const openBtn=document.getElementById('communityPostsButton'), overlay=document.getElementById('lzPostOverlay'), closeBtn=document.getElementById('lzPostClose'), list=document.getElementById('lzPostList'), form=document.getElementById('lzPostForm'), error=document.getElementById('lzPostError');

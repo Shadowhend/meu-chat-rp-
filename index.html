@@ -1002,6 +1002,26 @@
     }
   </style>
 
+
+  <style id="plus-menu-size-fix">
+    /* Keep the + popover isolated from global button/input typography. */
+    #plusTools.plus-tools { box-sizing:border-box !important; width:max-content !important; max-width:calc(100vw - 24px) !important; gap:7px !important; padding:8px !important; align-items:center !important; flex-wrap:wrap !important; }
+    #plusTools.plus-tools, #plusTools.plus-tools * { box-sizing:border-box !important; font-family:inherit !important; line-height:1.2 !important; letter-spacing:normal !important; text-transform:none !important; }
+    #plusTools.plus-tools > button { display:inline-flex !important; align-items:center !important; justify-content:center !important; flex:0 0 38px !important; width:38px !important; min-width:38px !important; max-width:38px !important; height:38px !important; min-height:38px !important; max-height:38px !important; margin:0 !important; padding:0 !important; font-size:14px !important; line-height:1 !important; border-radius:10px !important; }
+    #plusTools.plus-tools > button svg { width:19px !important; height:19px !important; flex:none !important; }
+    #plusTools.plus-tools > #stopServerMusicTool { flex:0 0 auto !important; width:auto !important; min-width:78px !important; max-width:none !important; padding:0 9px !important; font-size:11px !important; white-space:nowrap !important; }
+    #plusTools .music-client-controls { display:flex !important; flex:0 0 132px !important; width:132px !important; min-width:132px !important; max-width:132px !important; gap:5px !important; padding:3px 5px !important; font-size:11px !important; line-height:1.2 !important; }
+    #plusTools .music-client-controls label { display:flex !important; align-items:center !important; justify-content:space-between !important; font-size:11px !important; line-height:1.2 !important; margin:0 !important; }
+    #plusTools .music-client-controls input[type="range"] { display:block !important; width:120px !important; min-width:0 !important; height:16px !important; margin:0 !important; padding:0 !important; font-size:11px !important; }
+    #plusTools .music-client-controls button { display:inline-flex !important; align-items:center !important; justify-content:center !important; align-self:flex-start !important; width:auto !important; min-width:0 !important; max-width:100% !important; height:26px !important; min-height:26px !important; padding:0 8px !important; margin:0 !important; font-size:11px !important; line-height:1 !important; white-space:nowrap !important; border-radius:7px !important; }
+    @media(max-width:600px) {
+      #plusTools.plus-tools { left:0 !important; bottom:48px !important; max-width:calc(100vw - 20px) !important; gap:6px !important; padding:7px !important; }
+      #plusTools.plus-tools > button { flex-basis:34px !important; width:34px !important; min-width:34px !important; max-width:34px !important; height:34px !important; min-height:34px !important; max-height:34px !important; }
+      #plusTools .music-client-controls { flex-basis:118px !important; width:118px !important; min-width:118px !important; max-width:118px !important; }
+      #plusTools .music-client-controls input[type="range"] { width:108px !important; }
+    }
+  </style>
+
 </head>
 <body>
   <button id="mobileCommunityToggle" type="button" aria-expanded="false" aria-controls="communityRail" aria-label="Abrir comunidades" title="Comunidades">☰</button>

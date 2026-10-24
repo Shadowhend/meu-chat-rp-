@@ -173,25 +173,37 @@ app.get('/api/admin/overview', async (req, res) => {
     const users = await pool.query(`SELECT u.username, u.created_at, EXISTS(SELECT 1 FROM lobbyzero_suspensions s WHERE s.username_key=u.username_key AND s.community=$1 AND (s.suspended_until IS NULL OR s.suspended_until > NOW())) AS suspended FROM lobbyzero_users u ORDER BY u.created_at DESC LIMIT 300`, [community]);
     const totalUsers = await pool.query('SELECT COUNT(*)::int AS count FROM lobbyzero_users');
     const admins = await pool.query('SELECT u.username, a.created_at FROM lobbyzero_community_admins a JOIN lobbyzero_users u ON u.username_key=a.username_key WHERE a.community=$1 ORDER BY u.username', [community]);
+    const moderators = await pool.query('SELECT u.username, m.created_at FROM lobbyzero_community_moderators m JOIN lobbyzero_users u ON u.username_key=m.username_key WHERE m.community=$1 ORDER BY u.username', [community]);
     const onlineUsers = Array.from(online.entries()).filter(([, person]) => person.community === community).map(([id, person]) => ({ id, username: person.accountName || 'Guest', character: person.personagem || '', isAccount: !!person.isAccount, muted: mutedGuests.has(id) }));
-    res.json({ community, users: users.rows, admins: admins.rows, superAdmin: isSuperAdmin(user), online: onlineUsers, onlineCount: onlineUsers.length, registeredCount: totalUsers.rows[0].count, messagesInMemory: roomHistory(community).length });
+    res.json({ community, users: users.rows, admins: admins.rows, moderators: moderators.rows, superAdmin: isSuperAdmin(user), online: onlineUsers, onlineCount: onlineUsers.length, registeredCount: totalUsers.rows[0].count, messagesInMemory: roomHistory(community).length });
   } catch (error) { console.error('Admin overview failed:', error.message); res.status(500).json({ error: 'Não foi possível carregar o painel.' }); }
 });
 app.post('/api/admin/roles', async (req, res) => {
   try {
     const community = safeCommunity(req.body && req.body.community);
     const actor = await adminUser(req, res, community); if (!actor) return;
-    const username = safeName(req.body && req.body.username), grant = !!(req.body && req.body.grant);
+    const username = safeName(req.body && req.body.username);
+    const grant = !!(req.body && req.body.grant);
+    const role = String(req.body && req.body.role || 'admin').toLowerCase();
+    if (!['admin','moderator'].includes(role)) return res.status(400).json({error:'Cargo inválido.'});
     const target = await pool.query('SELECT username_key FROM lobbyzero_users WHERE username_key=$1', [username.toLowerCase()]);
-    if (!target.rowCount) return res.status(404).json({ error: 'Cadastre a conta antes de torná-la administradora.' });
-    if (grant) await pool.query('INSERT INTO lobbyzero_community_admins (username_key, community) VALUES ($1,$2) ON CONFLICT DO NOTHING', [username.toLowerCase(), community]);
-    else {
-      if (username.toLowerCase() === bootstrapAdminKey()) return res.status(400).json({ error: 'A conta ADM supremo é definida por ADMIN_BOOTSTRAP_USERNAME no Render. Para retirar esse privilégio, altere ou remova essa variável no Render.' });
-      if (username.toLowerCase() === actor.username.toLowerCase() && !isSuperAdmin(actor)) return res.status(400).json({ error: 'Um ADM de comunidade não pode remover a própria permissão. Peça a outro ADM ou ao ADM supremo.' });
+    if (!target.rowCount) return res.status(404).json({ error: 'Cadastre a conta antes de atribuir um cargo.' });
+    if (username.toLowerCase() === bootstrapAdminKey()) return res.status(400).json({error:'O ADM supremo é configurado no Render e não pode ser alterado por aqui.'});
+    if (grant) {
+      if (role === 'admin') {
+        await pool.query('INSERT INTO lobbyzero_community_admins (username_key, community) VALUES ($1,$2) ON CONFLICT DO NOTHING', [username.toLowerCase(), community]);
+        await pool.query('DELETE FROM lobbyzero_community_moderators WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]);
+      } else {
+        await pool.query('INSERT INTO lobbyzero_community_moderators (username_key, community) VALUES ($1,$2) ON CONFLICT DO NOTHING', [username.toLowerCase(), community]);
+        await pool.query('DELETE FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]);
+      }
+    } else {
+      if (username.toLowerCase() === actor.username.toLowerCase() && !isSuperAdmin(actor)) return res.status(400).json({ error: 'Você não pode remover seu próprio cargo.' });
       await pool.query('DELETE FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]);
+      await pool.query('DELETE FROM lobbyzero_community_moderators WHERE username_key=$1 AND community=$2', [username.toLowerCase(), community]);
     }
-    res.json({ ok: true, admin: grant, community });
-  } catch (error) { console.error('Admin role update failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar a permissão administrativa.' }); }
+    res.json({ ok: true, role: grant ? role : null, community });
+  } catch (error) { console.error('Admin role update failed:', error.message); res.status(500).json({ error: 'Não foi possível alterar o cargo.' }); }
 });
 app.post('/api/admin/suspensions', async (req, res) => {
   try {

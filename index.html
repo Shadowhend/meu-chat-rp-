@@ -669,7 +669,8 @@
     .plus-tools.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
     .plus-tools button{width:42px;height:42px;border:1px solid #48484e;border-radius:12px;background:#1b1b1f;color:#f5f5f5;font-size:22px;cursor:pointer}
     .plus-tools button:hover{background:#eee;color:#09090a}.plus-tools button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}.plus-tools button[hidden]{display:none!important}
-    @media(max-width:600px){.plus-tools{left:0;max-width:calc(100vw - 36px)}.plus-tools button{width:38px;height:38px}}
+    .music-client-controls{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:130px;padding:2px 6px;color:#eee;font-size:11px}.music-client-controls label{display:flex;justify-content:space-between;gap:8px}.music-client-controls input{width:130px;accent-color:#eee}.plus-tools #stopLocalMusic,.plus-tools #stopServerMusicTool{width:auto;min-width:76px;padding:0 9px;font-size:12px;white-space:nowrap}
+    @media(max-width:600px){.plus-tools{left:0;max-width:calc(100vw - 36px);flex-wrap:wrap}.plus-tools button{width:38px;height:38px}.music-client-controls{min-width:115px}.music-client-controls input{width:115px}}
 </style>
 
   <style id="lobbyzero-final-overrides">
@@ -1057,7 +1058,9 @@
         <input type="file" id="backgroundFile" accept="image/*" hidden>
         <div id="plusTools" class="plus-tools" aria-hidden="true">
           <button type="button" id="personalBackgroundTool" title="Meu fundo" aria-label="Meu fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 3-4 5 6"/></svg></button>
-          <button type="button" id="serverMusicTool" title="Música do servidor (ADM)" aria-label="Música do servidor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+          <div class="music-client-controls" aria-label="Controles locais da música"><label for="musicVolume">Volume <span id="musicVolumeValue">50%</span></label><input id="musicVolume" type="range" min="0" max="100" value="50" aria-label="Volume da música neste dispositivo"><button type="button" id="playLocalMusic" title="Tocar música neste dispositivo">Tocar música</button><button type="button" id="stopLocalMusic" title="Parar música só para mim">Parar aqui</button></div>
+          <button type="button" id="serverMusicTool" title="Escolher música para a comunidade (ADM)" aria-label="Música do servidor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+          <button type="button" id="stopServerMusicTool" title="Parar música para todos (ADM)" aria-label="Parar música para todos">Parar todos</button>
           <button type="button" id="serverBackgroundTool" title="Fundo do servidor (ADM)" aria-label="Fundo do servidor"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12"/></svg></button>
         </div>
         <input type="file" id="serverMusicFile" accept="audio/mpeg,audio/mp3,audio/ogg,audio/wav,audio/mp4,audio/webm" hidden><audio id="serverMusicPlayer" controls hidden></audio>
@@ -1232,8 +1235,16 @@
       } catch (_) {}
       const plusTools = document.getElementById('plusTools');
       const serverMusicPlayer = document.getElementById('serverMusicPlayer');
+      try { if ('mediaSession' in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; for (const action of ['play','pause','stop','seekbackward','seekforward']) { try { navigator.mediaSession.setActionHandler(action, null); } catch (_) {} } } } catch (_) {}
       const serverMusicFile = document.getElementById('serverMusicFile');
-      function setCommunityToolPermissions(isAdmin) { document.getElementById('serverMusicTool').hidden = !isAdmin; document.getElementById('serverBackgroundTool').hidden = !isAdmin; }
+      const musicVolume = document.getElementById('musicVolume');
+      const musicVolumeValue = document.getElementById('musicVolumeValue');
+      function setMusicVolume(value) { const volume = Math.max(0, Math.min(100, Number(value) || 0)); serverMusicPlayer.volume = volume / 100; musicVolume.value = String(volume); musicVolumeValue.textContent = volume + '%'; try { localStorage.setItem('lobbyzero_music_volume', String(volume)); } catch (_) {} }
+      try { setMusicVolume(localStorage.getItem('lobbyzero_music_volume') ?? 50); } catch (_) { setMusicVolume(50); }
+      musicVolume.addEventListener('input', () => setMusicVolume(musicVolume.value));
+      document.getElementById('playLocalMusic').addEventListener('click', async () => { try { await serverMusicPlayer.play(); showToast('Música tocando neste dispositivo.'); } catch (_) { showToast('Não foi possível iniciar a música. Confira se há uma música selecionada.'); } });
+      document.getElementById('stopLocalMusic').addEventListener('click', () => { serverMusicPlayer.pause(); showToast('Música parada só neste dispositivo.'); });
+      function setCommunityToolPermissions(isAdmin) { document.getElementById('serverMusicTool').hidden = !isAdmin; document.getElementById('stopServerMusicTool').hidden = !isAdmin; document.getElementById('serverBackgroundTool').hidden = !isAdmin; }
       setCommunityToolPermissions(false);
       serverMusicFile.addEventListener('change', () => { const file=serverMusicFile.files && serverMusicFile.files[0]; if(!file)return; if(!file.type.startsWith('audio/')) { showToast('Escolha um arquivo de áudio.'); return; } if(file.size>2*1024*1024) { showToast('O áudio precisa ter no máximo 2 MB.'); return; } const reader=new FileReader(); reader.onload=()=>socket.emit('admin_server_music',{url:String(reader.result||''),name:file.name}, result=>showToast(result&&result.error?result.error:'Música enviada para a comunidade.')); reader.readAsDataURL(file); serverMusicFile.value=''; });
       backgroundButton.addEventListener('click', () => {
@@ -1243,6 +1254,7 @@
       document.addEventListener('click', event => { if (!event.target.closest('#plusTools') && !event.target.closest('#backgroundButton')) { plusTools.classList.remove('open'); plusTools.setAttribute('aria-hidden','true'); } });
       document.getElementById('personalBackgroundTool').addEventListener('click', () => { plusTools.classList.remove('open'); const choice=window.confirm('OK: escolher uma imagem para SEU fundo. Cancelar: remover seu fundo.'); if(choice) backgroundFile.click(); else { applyWallpaper(''); try{localStorage.removeItem('lobbyzero_wallpaper')}catch(_){} } });
       document.getElementById('serverMusicTool').addEventListener('click', () => serverMusicFile.click());
+      document.getElementById('stopServerMusicTool').addEventListener('click', () => { if(confirm('Parar a música para todos nesta comunidade?')) socket.emit('admin_server_music_stop', {}, result => showToast(result && result.error ? result.error : 'Música parada para toda a comunidade.')); });
       document.getElementById('serverBackgroundTool').addEventListener('click', () => { const url=prompt('URL HTTPS da imagem de fundo compartilhada (somente ADM):'); if(!url)return; socket.emit('admin_server_background',{url}, result=>{ if(result && result.error) showToast(result.error); else showToast('Fundo da comunidade atualizado.'); }); });
       backgroundFile.addEventListener('change', () => {
         const file = backgroundFile.files && backgroundFile.files[0];
@@ -1412,7 +1424,7 @@
       const socket = io({ query: { community: communitySelect.value } });
       socket.on('community_tool_permissions', data => setCommunityToolPermissions(!!(data && data.isAdmin)));
       socket?.on('server_background_changed', data => { if(data && data.url) { chatRoot.style.setProperty('--chat-wallpaper', `linear-gradient(rgba(8,8,10,.58),rgba(8,8,10,.58)),url("${data.url}")`); chatRoot.classList.add('has-wallpaper'); } else { chatRoot.style.removeProperty('--chat-wallpaper'); chatRoot.classList.remove('has-wallpaper'); } });
-      socket?.on('server_music_changed', async data => { if(!data || !data.url) { serverMusicPlayer.pause(); serverMusicPlayer.removeAttribute('src'); return; } serverMusicPlayer.src=data.url; serverMusicPlayer.hidden=true; try { await serverMusicPlayer.play(); } catch (_) { showToast('A música chegou, mas o navegador bloqueou a reprodução automática. Toque no controle de áudio para iniciar.'); serverMusicPlayer.hidden=false; } });
+      socket?.on('server_music_changed', async data => { if(!data || !data.url) { serverMusicPlayer.pause(); serverMusicPlayer.removeAttribute('src'); serverMusicPlayer.load(); return; } serverMusicPlayer.src=data.url; serverMusicPlayer.volume=(Number(musicVolume.value)||0)/100; serverMusicPlayer.hidden=true; try { await serverMusicPlayer.play(); } catch (_) { showToast('O navegador bloqueou a reprodução automática. Abra o + e toque em “Tocar música”.'); serverMusicPlayer.hidden=true; } });
 
       setConnection(false, 'Connecting…');
 

@@ -419,12 +419,13 @@ io.on('connection', socket => {
       imageLastSent.set(socket.id, now);
     }
     const current = online.get(socket.id) || { personagem: accountName, foto: '' };
-    let isAdmin = false;
-    if (socket.user) { try { isAdmin = isSuperAdmin(socket.user) || !!(await pool.query('SELECT 1 FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2',[socket.user.username.toLowerCase(),socket.community])).rowCount; } catch (_) {} }
+    let isAdmin = false, isModerator = false;
+    if (socket.user) { try { isAdmin = isSuperAdmin(socket.user) || !!(await pool.query('SELECT 1 FROM lobbyzero_community_admins WHERE username_key=$1 AND community=$2',[socket.user.username.toLowerCase(),socket.community])).rowCount; if (!isAdmin) isModerator = !!(await pool.query('SELECT 1 FROM lobbyzero_community_moderators WHERE username_key=$1 AND community=$2',[socket.user.username.toLowerCase(),socket.community])).rowCount; } catch (_) {} }
     const message = {
       id: socket.id,
       isHost: isSuperAdmin(socket.user),
       isAdmin,
+      isModerator,
       accountName,
       personagem: safeName(data.personagem) || current.personagem || accountName,
       texto: text,

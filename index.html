@@ -1095,7 +1095,7 @@
             <div class="music-client-controls" aria-label="Volume e reprodução local da música">
               <label for="musicVolume">Volume <span id="musicVolumeValue">50%</span></label>
               <input id="musicVolume" type="range" min="0" max="100" value="50" aria-label="Volume da música neste dispositivo">
-              <button type="button" id="stopLocalMusic" title="Parar música só para mim">Parar aqui</button>
+              <button type="button" id="stopLocalMusic" title="Parar a música e o Bankai só para mim">Parar aqui</button>
               <button type="button" id="stopServerMusicTool" title="Parar música para todos (ADM)" aria-label="Parar música para todos" hidden>Parar todos</button>
             </div>
           </div>
@@ -1277,10 +1277,10 @@
       const serverMusicFile = document.getElementById('serverMusicFile');
       const musicVolume = document.getElementById('musicVolume');
       const musicVolumeValue = document.getElementById('musicVolumeValue');
-      function setMusicVolume(value) { const volume = Math.max(0, Math.min(100, Number(value) || 0)); serverMusicPlayer.volume = volume / 100; musicVolume.value = String(volume); musicVolumeValue.textContent = volume + '%'; try { localStorage.setItem('lobbyzero_music_volume', String(volume)); } catch (_) {} }
+      function setMusicVolume(value) { const volume = Math.max(0, Math.min(100, Number(value) || 0)); serverMusicPlayer.volume = volume / 100; musicVolume.value = String(volume); musicVolumeValue.textContent = volume + '%'; const bankaiFrame = document.querySelector('#bankaiThemePlayer iframe'); if (bankaiFrame && bankaiFrame.contentWindow) { try { bankaiFrame.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[volume]}), '*'); } catch (_) {} } try { localStorage.setItem('lobbyzero_music_volume', String(volume)); } catch (_) {} }
       try { setMusicVolume(localStorage.getItem('lobbyzero_music_volume') ?? 50); } catch (_) { setMusicVolume(50); }
       musicVolume.addEventListener('input', () => setMusicVolume(musicVolume.value));
-      document.getElementById('stopLocalMusic').addEventListener('click', () => { serverMusicPlayer.pause(); showToast('Música parada só neste dispositivo.'); });
+      document.getElementById('stopLocalMusic').addEventListener('click', () => { serverMusicPlayer.pause(); const bankaiPlayer = document.getElementById('bankaiThemePlayer'); const bankaiFrame = bankaiPlayer.querySelector('iframe'); if (bankaiFrame && bankaiFrame.contentWindow) { try { bankaiFrame.contentWindow.postMessage(JSON.stringify({event:'command',func:'stopVideo',args:[]}), '*'); } catch (_) {} } bankaiPlayer.innerHTML = ''; if (bankaiThemeTimer) { clearTimeout(bankaiThemeTimer); bankaiThemeTimer = null; } showToast('Música e Bankai parados só neste dispositivo.'); });
       function setMusicControlsPage(show) {
         document.getElementById('plusMainPage').hidden = !!show;
         document.getElementById('musicControlsPage').hidden = !show;
@@ -1480,10 +1480,14 @@
       socket?.on('bankai_theme_trigger', data => {
         const player = document.getElementById('bankaiThemePlayer');
         if (!player) return;
-        // Restart the embedded YouTube clip at 00:08 and stop at 00:20 (12 seconds).
-        player.innerHTML = '<iframe title="Bankai theme" width="1" height="1" src="https://www.youtube-nocookie.com/embed/3aSL6scMw5E?autoplay=1&start=8&end=20&playsinline=1&rel=0" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" style="border:0" tabindex="-1"></iframe>';
+        // Bankai theme: play from 00:08 through 00:25; volume is local to each listener.
+        const volume = Math.max(0, Math.min(100, Number(musicVolume.value) || 0));
+        player.innerHTML = '<iframe title="Bankai theme" width="1" height="1" src="https://www.youtube-nocookie.com/embed/3aSL6scMw5E?autoplay=1&start=8&end=25&enablejsapi=1&playsinline=1&rel=0&origin=' + encodeURIComponent(location.origin) + '" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" style="border:0" tabindex="-1"></iframe>';
+        const applyVolume = () => { const frame = player.querySelector('iframe'); if (frame && frame.contentWindow) { try { frame.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[volume]}), '*'); } catch (_) {} } };
+        setTimeout(applyVolume, 700);
+        setTimeout(applyVolume, 1400);
         if (bankaiThemeTimer) clearTimeout(bankaiThemeTimer);
-        bankaiThemeTimer = setTimeout(() => { player.innerHTML = ''; bankaiThemeTimer = null; }, 13000);
+        bankaiThemeTimer = setTimeout(() => { player.innerHTML = ''; bankaiThemeTimer = null; }, 18000);
       });
 
       setConnection(false, 'Connecting…');

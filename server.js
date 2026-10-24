@@ -178,6 +178,25 @@ app.get('/api/admin/overview', async (req, res) => {
     res.json({ community, users: users.rows, admins: admins.rows, moderators: moderators.rows, superAdmin: isSuperAdmin(user), online: onlineUsers, onlineCount: onlineUsers.length, registeredCount: totalUsers.rows[0].count, messagesInMemory: roomHistory(community).length });
   } catch (error) { console.error('Admin overview failed:', error.message); res.status(500).json({ error: 'Não foi possível carregar o painel.' }); }
 });
+app.post('/api/admin/accounts/delete', async (req, res) => {
+  try {
+    const actor = await currentUser(req);
+    if (!actor) return res.status(401).json({ error: 'Faça login para continuar.' });
+    if (!isSuperAdmin(actor)) return res.status(403).json({ error: 'Somente o ADM supremo pode apagar contas.' });
+    const username = safeName(req.body && req.body.username);
+    if (!username) return res.status(400).json({ error: 'Informe a conta.' });
+    if (username.toLowerCase() === bootstrapAdminKey()) return res.status(400).json({ error: 'A conta do ADM supremo não pode ser apagada por aqui.' });
+    const result = await pool.query('DELETE FROM lobbyzero_users WHERE username_key=$1 RETURNING username_key', [username.toLowerCase()]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Conta não encontrada.' });
+    for (const [id, person] of online) {
+      if (person.isAccount && String(person.accountName || '').toLowerCase() === username.toLowerCase()) {
+        io.sockets.sockets.get(id)?.emit('admin_disconnected', { message: 'Sua conta foi removida pelo administrador.' });
+        io.sockets.sockets.get(id)?.disconnect(true);
+      }
+    }
+    res.json({ ok: true });
+  } catch (error) { console.error('Account deletion failed:', error.message); res.status(500).json({ error: 'Não foi possível apagar a conta.' }); }
+});
 app.post('/api/admin/roles', async (req, res) => {
   try {
     const community = safeCommunity(req.body && req.body.community);
